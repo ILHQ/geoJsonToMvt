@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeoJSON MVT 预览 - 高度可视化</title>
+    <script src="https://unpkg.com/maplibre-gl@4.1.0/dist/maplibre-gl.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@4.1.0/dist/maplibre-gl.css" rel="stylesheet" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        #map {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .info-panel {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            max-width: 320px;
+            z-index: 1000;
+        }
+
+        .info-panel h1 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #1e293b;
+        }
+
+        .info-panel p {
+            font-size: 13px;
+            color: #64748b;
+            margin-bottom: 5px;
+        }
+
+        .info-panel .stats {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .info-panel .stat-item {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            margin-bottom: 3px;
+        }
+
+        .info-panel .stat-label {
+            color: #94a3b8;
+        }
+
+        .info-panel .stat-value {
+            color: #334155;
+            font-weight: 500;
+        }
+
+        .info-panel .altitude-info {
+            margin-top: 10px;
+            padding: 8px;
+            background: #f1f5f9;
+            border-radius: 6px;
+            font-size: 11px;
+        }
+
+        .basemap-switcher {
+            position: absolute;
+            top: 10px;
+            right: 60px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 8px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+
+        .basemap-switcher-label {
+            font-size: 11px;
+            color: #64748b;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        .basemap-buttons {
+            display: flex;
+            gap: 6px;
+        }
+
+        .basemap-btn {
+            padding: 6px 12px;
+            font-size: 11px;
+            background: #f1f5f9;
+            color: #64748b;
+            border: 2px solid transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        .basemap-btn:hover {
+            background: #e2e8f0;
+        }
+
+        .basemap-btn.active {
+            background: #3b82f6;
+            color: white;
+            border-color: #2563eb;
+        }
+
+        .color-mode-switcher {
+            position: absolute;
+            top: 100px;
+            right: 60px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 8px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+
+        .color-mode-switcher-label {
+            font-size: 11px;
+            color: #64748b;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        .color-mode-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .color-mode-btn {
+            padding: 6px 12px;
+            font-size: 11px;
+            background: #f1f5f9;
+            color: #64748b;
+            border: 2px solid transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 500;
+            text-align: left;
+        }
+
+        .color-mode-btn:hover {
+            background: #e2e8f0;
+        }
+
+        .color-mode-btn.active {
+            background: #3b82f6;
+            color: white;
+            border-color: #2563eb;
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            gap: 15px;
+            z-index: 1000;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control-group label {
+            font-size: 12px;
+            color: #64748b;
+            white-space: nowrap;
+        }
+
+        .control-group button {
+            padding: 6px 12px;
+            font-size: 12px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .control-group button:hover {
+            background: #2563eb;
+        }
+
+        .maplibregl-ctrl-group {
+            background: rgba(255, 255, 255, 0.95) !important;
+        }
+
+        .altitude-legend {
+            margin-top: 10px;
+            padding: 8px;
+            background: #f8fafc;
+            border-radius: 6px;
+        }
+
+        .legend-title {
+            font-size: 10px;
+            color: #64748b;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        .legend-gradient {
+            height: 12px;
+            border-radius: 3px;
+            background: linear-gradient(to right, #66bd63, #a6d96a, #d9ef8b, #ffffbf, #fee08b, #fdae61, #f46d43, #d73027);
+            margin-bottom: 4px;
+        }
+
+        .legend-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 9px;
+            color: #94a3b8;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <div class="info-panel">
+        <h1>🗺️ GeoJSON MVT 预览</h1>
+        <p>包含高度信息的矢量瓦片</p>
+        <div class="stats">
+            <div class="stat-item">
+                <span class="stat-label">要素数量:</span>
+                <span class="stat-value" id="featureCount">-</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">几何类型:</span>
+                <span class="stat-value" id="geometryTypes">-</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">缩放级别:</span>
+                <span class="stat-value" id="zoomLevel">-</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">中心点:</span>
+                <span class="stat-value" id="centerPoint">-</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">鼠标位置高度:</span>
+                <span class="stat-value" id="hoverAltitude">-</span>
+            </div>
+        </div>
+        <div class="altitude-info">
+            <strong>📊 高度信息已保留</strong><br>
+            所有要素的 altitude 属性已保存到 PBF 文件中
+        </div>
+        <div class="altitude-legend" id="altitudeLegend" style="display: none;">
+            <div class="legend-title">高度图例 (米)</div>
+            <div class="legend-gradient"></div>
+            <div class="legend-labels">
+                <span>0m</span>
+                <span>50m</span>
+                <span>100m</span>
+                <span>150m</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="basemap-switcher">
+        <div class="basemap-switcher-label">🗺️ 底图选择</div>
+        <div class="basemap-buttons">
+            <button class="basemap-btn" data-basemap="amap" onclick="switchBasemap('amap')">高德</button>
+            <button class="basemap-btn" data-basemap="amap-sat" onclick="switchBasemap('amap-sat')">卫星</button>
+        </div>
+    </div>
+
+    <div class="color-mode-switcher">
+        <div class="color-mode-switcher-label">🎨 颜色模式</div>
+        <div class="color-mode-buttons">
+            <button class="color-mode-btn active" data-mode="color" onclick="switchColorMode('color')">
+                原始颜色
+            </button>
+            <button class="color-mode-btn" data-mode="altitude" onclick="switchColorMode('altitude')">
+                高度映射
+            </button>
+            <button class="color-mode-btn" data-mode="hybrid" onclick="switchColorMode('hybrid')">
+                混合模式
+            </button>
+        </div>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label>视图控制:</label>
+            <button onclick="map.flyTo({zoom: 10, center: [114.222, 22.687]})">重置视图</button>
+            <button onclick="map.zoomIn()">放大</button>
+            <button onclick="map.zoomOut()">缩小</button>
+        </div>
+    </div>
+
+    <script>
+        // 当前状态
+        let currentBasemap = 'none';
+        let currentColorMode = 'color';
+
+        // 底图配置
+        const basemaps = {
+            'amap': {
+                name: '高德地图',
+                tiles: ['http://webrd02.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}'],
+                type: 'raster',
+                tileSize: 256
+            },
+            'amap-sat': {
+                name: '高德卫星',
+                tiles: ['http://webst02.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}'],
+                type: 'raster',
+                tileSize: 256
+            }
+        };
+
+        // 颜色模式配置
+        const colorModes = {
+            'color': {
+                paint: {
+                    'circle-radius': 6,
+                    'circle-color': ['get', 'color'],
+                    'circle-opacity': 0.8
+                }
+            },
+            'altitude': {
+                paint: {
+                    'circle-radius': 6,
+                    'circle-color': [
+                        'interpolate',
+                        ['linear'],
+                        ['get', 'altitude'],
+                        0, '#66bd63',
+                        25, '#a6d96a',
+                        50, '#d9ef8b',
+                        75, '#ffffbf',
+                        100, '#fee08b',
+                        125, '#fdae61',
+                        150, '#f46d43'
+                    ],
+                    'circle-opacity': 0.9
+                }
+            },
+            'hybrid': {
+                paint: {
+                    'circle-radius': [
+                        'interpolate',
+                        ['linear'],
+                        ['get', 'altitude'],
+                        0, 4,
+                        150, 10
+                    ],
+                    'circle-color': ['get', 'color'],
+                    'circle-opacity': 0.8
+                }
+            }
+        };
+
+        // 切换底图
+        function switchBasemap(basemapType) {
+            if (!map || currentBasemap === basemapType) return;
+
+            if (currentBasemap !== 'none') {
+                const currentSource = map.getSource('basemap');
+                if (currentSource) {
+                    map.removeLayer('basemap-layer');
+                    map.removeSource('basemap');
+                }
+            }
+
+            if (basemapType !== 'none') {
+                const basemapConfig = basemaps[basemapType];
+                map.addSource('basemap', {
+                    type: 'raster',
+                    tiles: basemapConfig.tiles,
+                    tileSize: basemapConfig.tileSize
+                });
+
+                const layers = map.getStyle().layers;
+                const bottomLayerId = layers[0]?.id;
+
+                if (bottomLayerId) {
+                    map.addLayer({
+                        id: 'basemap-layer',
+                        type: 'raster',
+                        source: 'basemap',
+                        minzoom: 0,
+                        maxzoom: 18
+                    }, bottomLayerId);
+                } else {
+                    map.addLayer({
+                        id: 'basemap-layer',
+                        type: 'raster',
+                        source: 'basemap',
+                        minzoom: 0,
+                        maxzoom: 18
+                    });
+                }
+            }
+
+            document.querySelectorAll('.basemap-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`[data-basemap="${basemapType}"]`).classList.add('active');
+
+            currentBasemap = basemapType;
+            console.log(`🗺️ 底图已切换到: ${basemaps[basemapType].name}`);
+        }
+
+        // 切换颜色模式
+        function switchColorMode(mode) {
+            if (!map || currentColorMode === mode) return;
+
+            const config = colorModes[mode];
+            const layerId = 'point-layer';
+
+            // 更新图层样式
+            Object.keys(config.paint).forEach(key => {
+                map.setPaintProperty(layerId, key, config.paint[key]);
+            });
+
+            // 更新按钮状态
+            document.querySelectorAll('.color-mode-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`[data-mode="${mode}"]`).classList.add('active');
+
+            // 显示/隐藏图例
+            const legend = document.getElementById('altitudeLegend');
+            legend.style.display = mode === 'altitude' ? 'block' : 'none';
+
+            currentColorMode = mode;
+            console.log(`🎨 颜色模式已切换到: ${mode}`);
+        }
+
+        // 动态加载样式文件
+        fetch('./style.json')
+            .then(response => response.json())
+            .then(style => {
+                // 更新统计信息
+                document.getElementById('featureCount').textContent =
+                    style.metadata?.['geojson:featureCount']?.toLocaleString() || '未知';
+                document.getElementById('geometryTypes').textContent =
+                    style.metadata?.['geojson:geometryTypes']?.join(', ') || '未知';
+                document.getElementById('zoomLevel').textContent =
+                    `${style.sources?.['vector-tiles']?.minzoom || 0} - ${style.sources?.['vector-tiles']?.maxzoom || 14}`;
+                document.getElementById('centerPoint').textContent =
+                    style.center?.map(c => c.toFixed(3)).join(', ') || '未知';
+
+                // 创建地图
+                const map = new maplibregl.Map({
+                    container: 'map',
+                    style: style,
+                    center: style.center || [0, 0],
+                    zoom: style.zoom || 2
+                });
+
+                // 添加导航控件
+                map.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+                // 添加缩放控件
+                map.addControl(new maplibregl.ScaleControl({
+                    maxWidth: 100,
+                    unit: 'metric'
+                }), 'bottom-left');
+
+                // 监听缩放变化
+                map.on('zoom', () => {
+                    document.getElementById('zoomLevel').textContent =
+                        `${map.getZoom().toFixed(1)} (max: ${style.sources?.['vector-tiles']?.maxzoom || 14})`;
+                });
+
+                // 鼠标悬停显示高度信息
+                map.on('mousemove', 'point-layer', (e) => {
+                    map.getCanvas().style.cursor = 'pointer';
+                    if (e.features.length > 0) {
+                        const feature = e.features[0];
+                        const altitude = feature.properties.altitude;
+                        const color = feature.properties.color;
+                        document.getElementById('hoverAltitude').textContent =
+                            altitude !== undefined ? `${altitude.toFixed(1)} m` : '-';
+                        console.log('要素信息:', { altitude, color, all: feature.properties });
+                    }
+                });
+
+                map.on('mouseleave', 'point-layer', () => {
+                    map.getCanvas().style.cursor = '';
+                    document.getElementById('hoverAltitude').textContent = '-';
+                });
+
+                // 地图加载完成
+                map.on('load', () => {
+                    console.log('🗺️ 地图加载完成');
+                    console.log('样式配置:', style);
+
+                    // 移除背景层
+                    const bgLayer = map.getLayer('background');
+                    if (bgLayer) {
+                        map.removeLayer('background');
+                    }
+                    switchBasemap('amap')
+                });
+
+                // 错误处理
+                map.on('error', (e) => {
+                    console.error('地图错误:', e);
+                });
+
+                // 暴露到全局作用域
+                window.map = map;
+                window.switchBasemap = switchBasemap;
+                window.switchColorMode = switchColorMode;
+            })
+            .catch(error => {
+                console.error('加载样式文件失败:', error);
+                document.body.innerHTML = `
+                    <div style="display: flex; align-items: center; justify-content: center; height: 100vh; flex-direction: column; font-family: sans-serif;">
+                        <h2 style="color: #ef4444;">❌ 加载失败</h2>
+                        <p style="color: #64748b;">无法加载样式文件: ${error.message}</p>
+                        <p style="color: #94a3b8; font-size: 14px; margin-top: 20px;">请确保已运行: npm run generate-all</p>
+                    </div>
+                `;
+            });
+    </script>
+</body>
+</html>
