@@ -2,6 +2,18 @@
 
 ## 变更记录 (Changelog)
 
+### 2026-04-21
+- ✂️ 移除 0-12 层级分层采样逻辑
+- 🎯 仅保留 13-15 层级的全量数据瓦片输出
+- 🗺️ 同步收敛样式默认缩放范围到 13-15
+
+### 2026-03-13
+- ✨ 新增点数据分层采样优化功能
+- 🎯 解决低缩放级别点数据重合/堆叠问题
+- 📦 新增 `src/pointSampler.js` 采样模块
+- ⚙️ 新增 `sampling.config.json` 配置文件
+- 📊 优化效果：低层级瓦片大小减少 70-90%
+
 ### 2026-03-12 16:12:24
 - 初始化 AI 上下文文档
 - 完成项目架构分析与文档生成
@@ -28,11 +40,20 @@
   - `vt-pbf@^3.1.3` - MVT Protocol Buffers 编码
 - **包管理器**：pnpm
 
+### 瓦片输出策略
+
+当前项目不再生成低层级采样瓦片，仅输出 13-15 层级的全量数据瓦片：
+
+| 缩放级别 | 输出策略 | 说明 |
+|---------|---------|------|
+| **13-15** | 完整数据 | 保留所有要素并生成可展示瓦片 |
+| **0-12** | 不生成 | 不再输出低层级采样瓦片 |
+
 ### 关键配置
 
 ```javascript
 {
-    maxZoom: 14,          // 最大切片层级
+    maxZoom: 15,          // 最大切片层级
     indexMaxZoom: 6,      // 索引层级
     indexMaxPoints: 100000,
     tolerance: 3,         // 简化容差
@@ -51,14 +72,18 @@ graph TD
     A["geoJsonToMvt"] --> B["index.js - 主程序"];
     A --> C["input/ - 输入数据"];
     A --> D["output/ - 输出切片"];
+    A --> E["src/ - 源代码模块"];
 
     C --> C1["airspaceData.json"];
     D --> D1["tiles/ - 按层级/行列组织"];
+    E --> E1["pointSampler.js - 瓦片层级策略"];
+    E --> E2["generateStyle.js - 样式生成"];
 
     style A fill:#e1f5ff
     style B fill:#fff4e1
     style C fill:#e8f5e9
     style D fill:#fce4ec
+    style E fill:#f3e5f5
 ```
 
 ---
@@ -68,6 +93,8 @@ graph TD
 | 模块路径 | 职责 | 语言 | 状态 |
 |---------|------|------|------|
 | `/` (根模块) | GeoJSON 到 MVT 转换工具 | JavaScript | ✅ 已扫描 |
+| `src/pointSampler.js` | 瓦片层级策略 | JavaScript | ✅ 已实现 |
+| `src/generateStyle.js` | 样式生成器 | JavaScript | ✅ 已扫描 |
 
 ---
 
@@ -89,19 +116,23 @@ node index.js
 
 ```
 geoJsonToMvt/
-├── index.js              # 主程序入口
-├── package.json          # 项目配置
-├── pnpm-lock.yaml        # 依赖锁定文件
-├── input/                # 输入数据目录
-│   └── airspaceData.json # GeoJSON 源数据
-└── output/               # 输出切片目录
-    └── tiles/            # 按 z/x/y 组织的切片文件
+├── index.js                  # 主程序入口
+├── package.json              # 项目配置
+├── pnpm-lock.yaml            # 依赖锁定文件
+├── sampling.config.json      # 瓦片层级配置文件
+├── src/                      # 源代码模块
+│   ├── pointSampler.js       # 瓦片层级策略
+│   └── generateStyle.js      # 样式生成器
+├── input/                    # 输入数据目录
+│   └── airspaceData.json     # GeoJSON 源数据
+└── output/                   # 输出切片目录
+    └── tiles/                # 按 z/x/y 组织的切片文件
 ```
 
 ### 输出格式
 
 切片文件按 `{z}/{x}/{y}.pbf` 格式存储：
-- `z` - 缩放层级 (0-14)
+- `z` - 缩放层级 (13-15)
 - `x` - 列号
 - `y` - 行号
 - `.pbf` - Protocol Buffers 二进制格式
@@ -139,7 +170,7 @@ geoJsonToMvt/
 
 ### 注意事项
 
-- 当前程序会生成所有层级（0-14）的切片，对于大范围数据可能非常耗时
+- 当前程序仅生成 13-15 层级切片，低于 13 级不会有可视数据
 - 输出目录需要确保有足够的磁盘空间
 - 建议添加增量生成支持，避免重复处理
 
@@ -150,11 +181,20 @@ geoJsonToMvt/
 ### Q: 如何修改切片的最大层级？
 A: 修改 `index.js` 中的 `maxZoom` 参数和循环的终止条件。
 
+### Q: 如何调整采样策略？
+A: 当前已移除分层采样逻辑。如需调整输出范围，修改 `src/pointSampler.js` 中的 `FULL_DATA_MIN_ZOOM` 和 `FULL_DATA_MAX_ZOOM`。
+
+### Q: 采样后的数据如何保证代表性？
+A: 当前不再采样，13-15 层级直接输出完整数据，因此不会发生代表性损失。
+
 ### Q: 如何处理超大 GeoJSON 文件？
 A: 考虑使用流式处理或将数据分块处理，避免一次性加载到内存。
 
 ### Q: 输出的切片如何使用？
 A: 可以直接用于 Mapbox GL、MapLibre GL 等支持 MVT 格式的地图库。
+
+### Q: 如何验证采样效果？
+A: 运行生成脚本后，检查 `output/tiles/` 目录是否仅包含 `13`、`14`、`15` 三个层级，并确认样式文件中的 `minzoom/maxzoom` 为 `13/15`。
 
 ---
 

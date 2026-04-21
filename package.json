@@ -3,18 +3,12 @@
   "version": "1.0.0",
   "type": "module",
   "main": "index.js",
-  "bin": {
-    "generate-style": "./generate-style.js"
-  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "generate-tiles": "node index.js",
-    "generate-style": "node generate-style.js",
-    "generate-all": "npm run generate-tiles && npm run generate-style"
+    "generate-tiles": "node index.js"
   },
   "author": "",
   "license": "ISC",
-  "description": "Convert GeoJSON to MVT tiles with MapLibre style support",
+  "description": "Convert Point FeatureCollection data to MVT tiles",
   "dependencies": {
     "geojson-vt": "^4.0.2",
     "vt-pbf": "^3.1.3"

@@ -1,133 +1,199 @@
 import fs from 'fs';
 import geojsonvt from 'geojson-vt';
 import vtpbf from 'vt-pbf';
+import {
+    DEFAULT_INPUT_PATH,
+    DEFAULT_SOURCE_LAYER,
+    DEFAULT_TILES_DIR,
+    FULL_DATA_MAX_ZOOM,
+    FULL_DATA_MIN_ZOOM
+} from './src/pointSampler.js';
+import {
+    createCubeFeatureCollection,
+    countFeaturesWithThirdCoordinate,
+    normalizeFeatureCollection,
+    readFeatureCollection
+} from './src/featureCollection.js';
 
 /**
- * 从 GeoJSON 要素的坐标中提取高度信息并添加到属性中
- * @param {Object} feature - GeoJSON 要素
- * @returns {Object} 处理后的要素
+ * 判断切片是否包含可编码的要素。
  */
-function extractAltitudeToProperties(feature) {
-    if (!feature.geometry || !feature.geometry.coordinates) {
-        return feature;
-    }
-
-    const coords = feature.geometry.coordinates;
-    let altitude = null;
-
-    // 处理不同几何类型的高度提取
-    switch (feature.geometry.type) {
-        case 'Point':
-            if (coords.length >= 3) {
-                altitude = coords[2];
-            }
-            break;
-        case 'MultiPoint':
-            // 取第一个点的高度
-            if (coords.length > 0 && coords[0].length >= 3) {
-                altitude = coords[0][2];
-            }
-            break;
-        case 'LineString':
-            // 取线段起点的高度
-            if (coords.length > 0 && coords[0].length >= 3) {
-                altitude = coords[0][2];
-            }
-            break;
-        case 'MultiLineString':
-            if (coords.length > 0 && coords[0].length > 0 && coords[0][0].length >= 3) {
-                altitude = coords[0][0][2];
-            }
-            break;
-        case 'Polygon':
-            // 取多边形第一个环的第一个点的高度
-            if (coords.length > 0 && coords[0].length > 0 && coords[0][0].length >= 3) {
-                altitude = coords[0][0][2];
-            }
-            break;
-        case 'MultiPolygon':
-            if (coords.length > 0 && coords[0].length > 0 && coords[0][0].length > 0 && coords[0][0][0].length >= 3) {
-                altitude = coords[0][0][0][2];
-            }
-            break;
-    }
-
-    // 如果找到了高度信息，添加到属性中
-    if (altitude !== null) {
-        feature.properties = feature.properties || {};
-        // 避免覆盖已有的 altitude 属性
-        if (!feature.properties.altitude) {
-            feature.properties.altitude = altitude;
-        }
-        // 添加原始坐标标记
-        feature.properties.has_altitude = true;
-    }
-
-    return feature;
+function hasRenderableFeatures(tile) {
+    return Array.isArray(tile?.features) && tile.features.length > 0;
 }
 
-// 读取 GeoJSON
-console.log('📖 读取 GeoJSON 文件...');
-const geojson = JSON.parse(
-    fs.readFileSync('./input/airspaceData.json', 'utf8')
-);
-
-console.log(`📊 原始要素数量: ${geojson.features.length}`);
-
-// 处理所有要素，提取高度信息
-console.log('🔄 处理要素，提取高度信息...');
-let withAltitudeCount = 0;
-
-geojson.features = geojson.features.map(feature => {
-    const processed = extractAltitudeToProperties(feature);
-    if (processed.properties?.has_altitude) {
-        withAltitudeCount++;
+/**
+ * 递归更新边界框，兼容任意层级的 GeoJSON coordinates 结构。
+ */
+function updateBoundsFromCoordinates(coordinates, bounds) {
+    if (!Array.isArray(coordinates)) {
+        return;
     }
-    return processed;
-});
 
-console.log(`✅ 已提取 ${withAltitudeCount} 个要素的高度信息`);
-
-// 创建瓦片索引
-console.log('⚙️  创建瓦片索引...');
-const tileIndex = geojsonvt(geojson, {
-    maxZoom: 14,          // 最大切片层级
-    indexMaxZoom: 6,      // 索引层级
-    indexMaxPoints: 100000,
-    tolerance: 3,         // 简化容差
-    extent: 4096,
-    buffer: 64,
-    debug: 0
-});
-
-// 生成瓦片
-console.log('🔨 生成 PBF 瓦片...');
-let tileCount = 0;
-
-for (let z = 0; z <= 14; z++) {
-    const max = 1 << z;
-
-    for (let x = 0; x < max; x++) {
-        for (let y = 0; y < max; y++) {
-            const tile = tileIndex.getTile(z, x, y);
-            if (!tile) continue;
-
-            const buffer = vtpbf.fromGeojsonVt({
-                data: tile
-            });
-
-            const dir = `./output/tiles/${z}/${x}`;
-            fs.mkdirSync(dir, { recursive: true });
-            fs.writeFileSync(`${dir}/${y}.pbf`, buffer);
-
-            tileCount++;
-        }
+    if (
+        coordinates.length >= 2 &&
+        typeof coordinates[0] === 'number' &&
+        typeof coordinates[1] === 'number'
+    ) {
+        bounds.minLng = Math.min(bounds.minLng, coordinates[0]);
+        bounds.maxLng = Math.max(bounds.maxLng, coordinates[0]);
+        bounds.minLat = Math.min(bounds.minLat, coordinates[1]);
+        bounds.maxLat = Math.max(bounds.maxLat, coordinates[1]);
+        return;
     }
+
+    coordinates.forEach(child => {
+        updateBoundsFromCoordinates(child, bounds);
+    });
 }
 
-console.log(`✅ 瓦片生成完成: ${tileCount} 个瓦片`);
-console.log('\n🎉 全部完成！\n');
-console.log('💡 提示:');
-console.log('   - 高度信息已保存在要素的 "altitude" 属性中');
-console.log('   - 可以在 MapLibre 中通过 feature.properties.altitude 访问');
-console.log('   - 可用于 3D 可视化、颜色映射等场景');
+/**
+ * 计算 FeatureCollection 的经纬度边界。
+ */
+function calculateFeatureCollectionBounds(featureCollection) {
+    const bounds = {
+        minLng: Infinity,
+        maxLng: -Infinity,
+        minLat: Infinity,
+        maxLat: -Infinity
+    };
+
+    featureCollection.features.forEach(feature => {
+        updateBoundsFromCoordinates(feature.geometry?.coordinates, bounds);
+    });
+
+    if (!Number.isFinite(bounds.minLng) || !Number.isFinite(bounds.minLat)) {
+        return null;
+    }
+
+    return bounds;
+}
+
+/**
+ * 将经度转换为指定缩放级别的瓦片列号。
+ */
+function lngToTileX(lng, zoom) {
+    const tileCount = 1 << zoom;
+    const raw = ((lng + 180) / 360) * tileCount;
+    return Math.min(tileCount - 1, Math.max(0, Math.floor(raw)));
+}
+
+/**
+ * 将纬度转换为指定缩放级别的瓦片行号。
+ */
+function latToTileY(lat, zoom) {
+    const tileCount = 1 << zoom;
+    const rad = (lat * Math.PI) / 180;
+    const raw = (
+        (1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2
+    ) * tileCount;
+    return Math.min(tileCount - 1, Math.max(0, Math.floor(raw)));
+}
+
+/**
+ * 按数据边界直接扫描目标缩放层级内的非空瓦片。
+ */
+function collectTilesInRange(tileIndex, featureCollection, minZoom, maxZoom) {
+    const bounds = calculateFeatureCollectionBounds(featureCollection);
+    if (!bounds) {
+        return [];
+    }
+
+    const collectedTiles = [];
+
+    for (let z = minZoom; z <= maxZoom; z++) {
+        const minX = lngToTileX(bounds.minLng, z);
+        const maxX = lngToTileX(bounds.maxLng, z);
+        const minY = latToTileY(bounds.maxLat, z);
+        const maxY = latToTileY(bounds.minLat, z);
+
+        for (let x = minX; x <= maxX; x++) {
+            for (let y = minY; y <= maxY; y++) {
+                const tile = tileIndex.getTile(z, x, y);
+                if (!hasRenderableFeatures(tile)) {
+                    continue;
+                }
+
+                collectedTiles.push({ z, x, y, tile });
+            }
+        }
+    }
+
+    return collectedTiles;
+}
+
+/**
+ * 将收集到的瓦片编码为 PBF 并写入输出目录。
+ */
+function writeTiles(tileIndex, featureCollection) {
+    const tiles = collectTilesInRange(
+        tileIndex,
+        featureCollection,
+        FULL_DATA_MIN_ZOOM,
+        FULL_DATA_MAX_ZOOM
+    );
+    const tileCountByZoom = new Map();
+
+    for (const { z, x, y, tile } of tiles) {
+        const buffer = vtpbf.fromGeojsonVt({
+            [DEFAULT_SOURCE_LAYER]: tile
+        });
+
+        const tileDir = `${DEFAULT_TILES_DIR}/${z}/${x}`;
+        fs.mkdirSync(tileDir, { recursive: true });
+        fs.writeFileSync(`${tileDir}/${y}.pbf`, buffer);
+
+        tileCountByZoom.set(z, (tileCountByZoom.get(z) || 0) + 1);
+    }
+
+    return {
+        total: tiles.length,
+        byZoom: tileCountByZoom
+    };
+}
+
+/**
+ * 将分层瓦片统计格式化为单行日志。
+ */
+function formatTileStats(tileCountByZoom) {
+    return Array.from(tileCountByZoom.entries())
+        .map(([zoom, count]) => `z${zoom}=${count}`)
+        .join(', ');
+}
+
+/**
+ * 执行固定输入到固定输出的 MVT 生成流程。
+ */
+function main() {
+    console.log('📖 读取 FeatureCollection...');
+    const rawFeatureCollection = readFeatureCollection(DEFAULT_INPUT_PATH);
+    const normalizedFeatureCollection = normalizeFeatureCollection(rawFeatureCollection);
+    const featureCollection = createCubeFeatureCollection(normalizedFeatureCollection);
+    const thirdCoordinateCount = countFeaturesWithThirdCoordinate(rawFeatureCollection);
+
+    console.log(`📊 要素数量: ${featureCollection.features.length}`);
+    console.log(`🧭 含第三维坐标要素数量: ${thirdCoordinateCount}`);
+    if (thirdCoordinateCount > 0) {
+        console.log('ℹ️  MVT 几何仅支持二维坐标，已同步第三维到 properties.altitude。');
+    }
+    console.log('🧱 输出几何: 7x7 米方格 Polygon，baseHeight/topHeight 基于 altitude 计算。');
+    console.log(`⚙️  生成 ${FULL_DATA_MIN_ZOOM}-${FULL_DATA_MAX_ZOOM} 层 MVT 瓦片...`);
+
+    const tileIndex = geojsonvt(featureCollection, {
+        maxZoom: FULL_DATA_MAX_ZOOM,
+        indexMaxZoom: Math.min(FULL_DATA_MAX_ZOOM, 6),
+        indexMaxPoints: 100000,
+        tolerance: 3,
+        extent: 4096,
+        buffer: 64,
+        debug: 0
+    });
+
+    const tileStats = writeTiles(tileIndex, featureCollection);
+    console.log(`✅ 已生成 ${tileStats.total} 个瓦片`);
+    console.log(`   分层统计: ${formatTileStats(tileStats.byZoom)}`);
+    console.log('\n✨ 完成');
+    console.log(`   - 瓦片目录: ${DEFAULT_TILES_DIR}`);
+}
+
+main();

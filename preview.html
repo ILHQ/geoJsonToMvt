@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PBF 预览 | 颜色与高度</title>
+    <script src="https://unpkg.com/maplibre-gl@4.1.0/dist/maplibre-gl.js"></script>
+    <link href="https://unpkg.com/maplibre-gl@4.1.0/dist/maplibre-gl.css" rel="stylesheet">
+    <style>
+        :root {
+            --panel-bg: rgba(7, 16, 31, 0.82);
+            --panel-border: rgba(158, 189, 255, 0.18);
+            --panel-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+            --text-main: #f8fbff;
+            --text-muted: #93a9c8;
+            --accent: #7dd3fc;
+            --accent-warm: #fb7185;
+            --accent-lime: #bef264;
+            --track: rgba(255, 255, 255, 0.12);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+        }
+
+        body {
+            overflow: hidden;
+            font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+            background:
+                radial-gradient(circle at top left, rgba(56, 189, 248, 0.24), transparent 32%),
+                radial-gradient(circle at top right, rgba(251, 113, 133, 0.18), transparent 28%),
+                linear-gradient(140deg, #081120 0%, #0d1a31 48%, #132947 100%);
+            color: var(--text-main);
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .chrome {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+
+        .hero {
+            position: absolute;
+            top: 24px;
+            left: 24px;
+            width: min(420px, calc(100vw - 48px));
+            padding: 22px 22px 18px;
+            border: 1px solid var(--panel-border);
+            border-radius: 22px;
+            background: var(--panel-bg);
+            box-shadow: var(--panel-shadow);
+            backdrop-filter: blur(18px);
+            pointer-events: auto;
+        }
+
+        .eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: rgba(125, 211, 252, 0.12);
+            color: #b8ecff;
+            font-size: 12px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .hero h1 {
+            margin: 14px 0 10px;
+            font-size: clamp(28px, 4vw, 38px);
+            line-height: 1.04;
+            letter-spacing: -0.04em;
+        }
+
+        .hero p {
+            margin: 0;
+            color: var(--text-muted);
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .status-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            margin-top: 18px;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text-main);
+            font-size: 13px;
+        }
+
+        .status-pill::before {
+            content: "";
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 18px rgba(125, 211, 252, 0.75);
+        }
+
+        .status-pill[data-tone="warn"]::before {
+            background: #fbbf24;
+            box-shadow: 0 0 18px rgba(251, 191, 36, 0.75);
+        }
+
+        .status-pill[data-tone="error"]::before {
+            background: var(--accent-warm);
+            box-shadow: 0 0 18px rgba(251, 113, 133, 0.75);
+        }
+
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .meta-card {
+            padding: 14px;
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .meta-card .label {
+            display: block;
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+        }
+
+        .meta-card .value {
+            display: block;
+            margin-top: 8px;
+            font-size: 22px;
+            font-weight: 600;
+            letter-spacing: -0.03em;
+        }
+
+        .meta-card .hint {
+            display: block;
+            margin-top: 6px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .sidebar {
+            position: absolute;
+            top: 24px;
+            right: 24px;
+            width: min(340px, calc(100vw - 48px));
+            display: grid;
+            gap: 14px;
+            pointer-events: none;
+        }
+
+        .panel {
+            padding: 18px;
+            border-radius: 20px;
+            border: 1px solid var(--panel-border);
+            background: var(--panel-bg);
+            box-shadow: var(--panel-shadow);
+            backdrop-filter: blur(18px);
+            pointer-events: auto;
+        }
+
+        .panel h2 {
+            margin: 0;
+            font-size: 16px;
+            letter-spacing: -0.02em;
+        }
+
+        .panel p {
+            margin: 10px 0 0;
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--text-muted);
+        }
+
+        .legend {
+            margin-top: 14px;
+            padding: 14px;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .legend-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .legend-row + .legend-row {
+            margin-top: 12px;
+        }
+
+        .legend-dot {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .legend-dot.color {
+            background: linear-gradient(135deg, #22d3ee 0%, #fb7185 100%);
+            box-shadow: 0 0 20px rgba(34, 211, 238, 0.4);
+        }
+
+        .legend-dot.altitude {
+            background: radial-gradient(circle, rgba(190, 242, 100, 1) 0%, rgba(190, 242, 100, 0.18) 70%);
+        }
+
+        .legend-text strong {
+            display: block;
+            font-size: 13px;
+        }
+
+        .legend-text span {
+            display: block;
+            margin-top: 4px;
+            color: var(--text-muted);
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .range-block {
+            margin-top: 16px;
+        }
+
+        .range-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: baseline;
+            margin-bottom: 10px;
+        }
+
+        .range-header strong {
+            font-size: 24px;
+            letter-spacing: -0.03em;
+        }
+
+        .range-header span {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .range-scale {
+            width: 100%;
+            appearance: none;
+            height: 6px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, rgba(125, 211, 252, 0.2) 0%, rgba(190, 242, 100, 0.28) 50%, rgba(251, 113, 133, 0.28) 100%);
+            outline: none;
+        }
+
+        .range-scale::-webkit-slider-thumb {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.7);
+            background: #f8fbff;
+            box-shadow: 0 0 20px rgba(125, 211, 252, 0.55);
+            cursor: pointer;
+        }
+
+        .range-scale::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.7);
+            background: #f8fbff;
+            box-shadow: 0 0 20px rgba(125, 211, 252, 0.55);
+            cursor: pointer;
+        }
+
+        .range-scale:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .range-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .button-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .button {
+            appearance: none;
+            border: none;
+            border-radius: 999px;
+            padding: 10px 14px;
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-main);
+            font-size: 13px;
+            cursor: pointer;
+            transition: transform 160ms ease, background 160ms ease;
+        }
+
+        .button:hover {
+            transform: translateY(-1px);
+            background: rgba(255, 255, 255, 0.14);
+        }
+
+        .button.primary {
+            background: linear-gradient(135deg, rgba(125, 211, 252, 0.26) 0%, rgba(59, 130, 246, 0.28) 100%);
+        }
+
+        .inspector-grid {
+            display: grid;
+            gap: 12px;
+            margin-top: 14px;
+        }
+
+        .inspect-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .inspect-row span {
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+
+        .inspect-row strong {
+            text-align: right;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .color-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .color-swatch {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            background: #7dd3fc;
+            box-shadow: 0 0 16px rgba(125, 211, 252, 0.45);
+        }
+
+        .maplibregl-ctrl-group {
+            background: rgba(7, 16, 31, 0.86) !important;
+            border: 1px solid rgba(158, 189, 255, 0.16);
+            box-shadow: var(--panel-shadow) !important;
+        }
+
+        .maplibregl-ctrl button span {
+            filter: invert(1) saturate(0) brightness(2);
+        }
+
+        @media (max-width: 960px) {
+            .hero,
+            .sidebar {
+                width: calc(100vw - 24px);
+            }
+
+            .hero {
+                top: 12px;
+                left: 12px;
+                padding: 18px;
+            }
+
+            .sidebar {
+                top: auto;
+                right: 12px;
+                bottom: 12px;
+                gap: 10px;
+            }
+
+            .panel {
+                padding: 16px;
+            }
+
+            .meta-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <div class="chrome">
+        <section class="hero">
+            <div class="eyebrow">PBF Preview</div>
+            <h1>固定方格，按高叠加</h1>
+            <p>这版预览默认加载高德底图，并从 `http://localhost:7778/mvt/{z}/{x}/{y}.pbf` 读取已经方格化的 Polygon 瓦片。预览直接使用 `SOURCE_ID` 做 `fill-extrusion`，相同经纬度的要素按 `altitude` 上下堆叠，颜色直接读取 `color`。</p>
+
+            <div class="status-row">
+                <div class="status-pill" id="statusPill" data-tone="info">
+                    <span id="statusText">正在初始化地图…</span>
+                </div>
+            </div>
+
+            <div class="meta-grid">
+                <div class="meta-card">
+                    <span class="label">可见要素</span>
+                    <span class="value" id="visibleFeatures">-</span>
+                    <span class="hint">当前视窗内已渲染的柱体</span>
+                </div>
+                <div class="meta-card">
+                    <span class="label">当前缩放</span>
+                    <span class="value" id="zoomValue">-</span>
+                    <span class="hint">MapLibre 实时缩放级别</span>
+                </div>
+            </div>
+        </section>
+
+        <aside class="sidebar">
+            <section class="panel">
+                <h2>数据规则</h2>
+                <p>每个数据单元在瓦片生成阶段就会被转换成固定 `7*7` 米的方格 Polygon。预览直接用 `SOURCE_ID` 做 `fill-extrusion`，`baseHeight = altitude - 3.5`，`topHeight = altitude + 3.5`，颜色直接来自 `color`。</p>
+
+                <div class="legend">
+                    <div class="legend-row">
+                        <div class="legend-dot color"></div>
+                        <div class="legend-text">
+                            <strong>`color` → 方格颜色</strong>
+                            <span>每个方格直接使用 PBF 中的 `color` 字段，不做颜色分段或插值。</span>
+                        </div>
+                    </div>
+                    <div class="legend-row">
+                        <div class="legend-dot altitude"></div>
+                        <div class="legend-text">
+                            <strong>`altitude` → 立方体层位</strong>
+                            <span>相同经纬度下的方格以 `altitude` 为中心高度上下叠加，单个方格固定高 7 米。</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="panel">
+                <h2>悬停检查</h2>
+                <p>移动到立方体上查看当前颜色、中心高度和位置。</p>
+
+                <div class="inspector-grid">
+                    <div class="inspect-row">
+                        <span>颜色字段</span>
+                        <strong class="color-chip">
+                            <i id="hoverColorSwatch" class="color-swatch"></i>
+                            <span id="hoverColorValue">-</span>
+                        </strong>
+                    </div>
+                    <div class="inspect-row">
+                        <span>高度字段</span>
+                        <strong id="hoverAltitudeValue">-</strong>
+                    </div>
+                    <div class="inspect-row">
+                        <span>经纬度</span>
+                        <strong id="hoverCoordinateValue">-</strong>
+                    </div>
+                </div>
+
+                <div class="button-row">
+                    <button id="fitBoundsButton" class="button primary" type="button">重新适配视野</button>
+                </div>
+            </section>
+        </aside>
+    </div>
+
+    <script>
+        const BASEMAP_SOURCE_ID = 'gaode-base';
+        const BASEMAP_LAYER_ID = 'gaode-base-layer';
+        const SOURCE_ID = 'airspace';
+        const SOURCE_LAYER = 'data';
+        const EXTRUSION_LAYER_ID = 'airspace-extrusion-layer';
+        const TILE_URL = 'http://localhost:7778/mvt/{z}/{x}/{y}.pbf';
+        const GAODE_TILE_URLS = [
+            'https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}',
+            'https://webrd02.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}',
+            'https://webrd03.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}',
+            'https://webrd04.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}'
+        ];
+        const DEFAULT_CENTER = [114.22215277777778, 22.6875];
+        const DEFAULT_ZOOM = 17;
+
+        const state = {
+            map: null,
+            bounds: null
+        };
+
+        const elements = {
+            statusPill: document.getElementById('statusPill'),
+            statusText: document.getElementById('statusText'),
+            visibleFeatures: document.getElementById('visibleFeatures'),
+            zoomValue: document.getElementById('zoomValue'),
+            fitBoundsButton: document.getElementById('fitBoundsButton'),
+            hoverColorSwatch: document.getElementById('hoverColorSwatch'),
+            hoverColorValue: document.getElementById('hoverColorValue'),
+            hoverAltitudeValue: document.getElementById('hoverAltitudeValue'),
+            hoverCoordinateValue: document.getElementById('hoverCoordinateValue')
+        };
+
+        /**
+         * 创建直接读取 `color` 字段的方格颜色表达式。
+         */
+        function createExtrusionColorExpression() {
+            return ['coalesce', ['get', 'color'], '#7dd3fc'];
+        }
+
+        /**
+         * 创建读取方格顶部高度的表达式。
+         */
+        function createExtrusionHeightExpression() {
+            return ['coalesce', ['to-number', ['get', 'topHeight']], 0];
+        }
+
+        /**
+         * 创建读取方格底部高度的表达式。
+         */
+        function createExtrusionBaseExpression() {
+            return ['coalesce', ['to-number', ['get', 'baseHeight']], 0];
+        }
+
+        /**
+         * 创建预览页使用的最小 MapLibre 样式对象。
+         */
+        function createMapStyle() {
+            return {
+                version: 8,
+                light: {
+                    anchor: 'viewport',
+                    color: '#fff7ed',
+                    intensity: 0.42,
+                    position: [1.15, 120, 50]
+                },
+                sources: {
+                    [BASEMAP_SOURCE_ID]: {
+                        type: 'raster',
+                        tiles: GAODE_TILE_URLS,
+                        tileSize: 256,
+                        minzoom: 3,
+                        maxzoom: 18,
+                        attribution: '高德地图'
+                    },
+                    [SOURCE_ID]: {
+                        type: 'vector',
+                        tiles: [TILE_URL],
+                        minzoom: 13,
+                        maxzoom: 15
+                    }
+                },
+                layers: [
+                    {
+                        id: BASEMAP_LAYER_ID,
+                        type: 'raster',
+                        source: BASEMAP_SOURCE_ID,
+                        minzoom: 3,
+                        maxzoom: 18,
+                        paint: {
+                            'raster-opacity': 0.94,
+                            'raster-saturation': -0.08,
+                            'raster-contrast': 0.06,
+                            'raster-fade-duration': 0
+                        }
+                    },
+                    {
+                        id: EXTRUSION_LAYER_ID,
+                        type: 'fill-extrusion',
+                        source: SOURCE_ID,
+                        'source-layer': SOURCE_LAYER,
+                        paint: {
+                            'fill-extrusion-color': createExtrusionColorExpression(),
+                            'fill-extrusion-height': createExtrusionHeightExpression(),
+                            'fill-extrusion-base': createExtrusionBaseExpression(),
+                            'fill-extrusion-opacity': 0.94,
+                            'fill-extrusion-vertical-gradient': true
+                        }
+                    }
+                ]
+            };
+        }
+
+        /**
+         * 将任意值安全转换为数字高度。
+         */
+        function parseAltitude(value) {
+            const parsed = Number(value);
+            return Number.isFinite(parsed) ? parsed : null;
+        }
+
+        /**
+         * 将高度值格式化为统一展示文案。
+         */
+        function formatAltitude(value) {
+            if (value === null || value === undefined) {
+                return '—';
+            }
+
+            return `${Number(value).toFixed(1)} m`;
+        }
+
+        /**
+         * 将数字格式化为简短文本。
+         */
+        function formatCompactNumber(value, digits = 0) {
+            if (value === null || value === undefined || Number.isNaN(value)) {
+                return '—';
+            }
+
+            return Number(value).toFixed(digits);
+        }
+
+        /**
+         * 校验颜色值是否可被浏览器直接渲染。
+         */
+        function getSafeColor(value) {
+            if (typeof value === 'string' && CSS.supports('color', value)) {
+                return value;
+            }
+
+            return '#7dd3fc';
+        }
+
+        /**
+         * 统一更新顶部状态提示。
+         */
+        function setStatus(message, tone = 'info') {
+            elements.statusText.textContent = message;
+            elements.statusPill.dataset.tone = tone;
+        }
+
+        /**
+         * 从已加载的点要素计算地图包围盒。
+         */
+        function calculateBoundsFromFeatures(features) {
+            let minLng = Infinity;
+            let maxLng = -Infinity;
+            let minLat = Infinity;
+            let maxLat = -Infinity;
+
+            features.forEach(feature => {
+                const lng = Number(feature?.properties?.lng);
+                const lat = Number(feature?.properties?.lat);
+
+                if (Number.isFinite(lng) && Number.isFinite(lat)) {
+                    minLng = Math.min(minLng, lng);
+                    maxLng = Math.max(maxLng, lng);
+                    minLat = Math.min(minLat, lat);
+                    maxLat = Math.max(maxLat, lat);
+                    return;
+                }
+
+                const coordinates = feature?.geometry?.coordinates?.[0]?.[0];
+                if (!Array.isArray(coordinates) || coordinates.length < 2) {
+                    return;
+                }
+
+                minLng = Math.min(minLng, coordinates[0]);
+                maxLng = Math.max(maxLng, coordinates[0]);
+                minLat = Math.min(minLat, coordinates[1]);
+                maxLat = Math.max(maxLat, coordinates[1]);
+            });
+
+            if (!Number.isFinite(minLng) || !Number.isFinite(minLat)) {
+                return null;
+            }
+
+            return [
+                [minLng, minLat],
+                [maxLng, maxLat]
+            ];
+        }
+
+        /**
+         * 计算移动端和桌面端分别适合的 fitBounds 内边距。
+         */
+        function getFitBoundsPadding() {
+            if (window.matchMedia('(max-width: 960px)').matches) {
+                return { top: 180, right: 24, bottom: 260, left: 24 };
+            }
+
+            return { top: 64, right: 380, bottom: 64, left: 64 };
+        }
+
+        /**
+         * 让地图重新适配到输入数据范围。
+         */
+        function fitMapToBounds() {
+            if (!state.map || !state.bounds) {
+                return;
+            }
+
+            state.map.fitBounds(state.bounds, {
+                padding: getFitBoundsPadding(),
+                duration: 900
+            });
+        }
+
+        /**
+         * 去重并收集当前已加载的 PBF 方格要素。
+         */
+        function collectSourceFeatures() {
+            const renderedFeatures = state.map.querySourceFeatures(SOURCE_ID, {
+                sourceLayer: SOURCE_LAYER
+            });
+            const deduped = new Map();
+
+            renderedFeatures.forEach(feature => {
+                const altitude = parseAltitude(feature.properties?.altitude);
+                const lng = Number(feature.properties?.lng);
+                const lat = Number(feature.properties?.lat);
+                const color = getSafeColor(feature.properties?.color);
+                const key = [
+                    Number.isFinite(lng) ? lng.toFixed(6) : 'na',
+                    Number.isFinite(lat) ? lat.toFixed(6) : 'na',
+                    altitude ?? 'na',
+                    color
+                ].join('|');
+
+                if (!deduped.has(key)) {
+                    deduped.set(key, feature);
+                }
+            });
+
+            return Array.from(deduped.values());
+        }
+
+        /**
+         * 根据当前视窗更新可见要素统计。
+         */
+        function updateViewportStats() {
+            if (!state.map) {
+                return;
+            }
+
+            const canvas = state.map.getCanvas();
+            const visibleFeatures = state.map.queryRenderedFeatures(
+                [
+                    [0, 0],
+                    [canvas.width, canvas.height]
+                ],
+                {
+                    layers: [EXTRUSION_LAYER_ID]
+                }
+            );
+            const sourceFeatures = collectSourceFeatures();
+            state.bounds = calculateBoundsFromFeatures(sourceFeatures);
+            const dedupedKeys = new Set();
+
+            visibleFeatures.forEach(feature => {
+                const altitude = parseAltitude(feature.properties?.altitude);
+                const lng = Number(feature.properties?.lng);
+                const lat = Number(feature.properties?.lat);
+                const color = getSafeColor(feature.properties?.color);
+
+                dedupedKeys.add([
+                    Number.isFinite(lng) ? lng.toFixed(6) : 'na',
+                    Number.isFinite(lat) ? lat.toFixed(6) : 'na',
+                    altitude ?? 'na',
+                    color
+                ].join('|'));
+            });
+
+            elements.visibleFeatures.textContent = dedupedKeys.size.toLocaleString('zh-CN');
+            elements.zoomValue.textContent = formatCompactNumber(state.map.getZoom(), 2);
+
+            if (sourceFeatures.length === 0) {
+                setStatus('当前视窗内还没有命中瓦片数据。', 'warn');
+                return;
+            }
+
+            setStatus('高德底图与 SOURCE_ID 挤出方格已生效，颜色直接来自 color，高度按 altitude 计算。', 'info');
+        }
+
+        /**
+         * 将悬停要素写入右侧检查面板。
+         */
+        function updateHoverInspector(feature) {
+            if (!feature) {
+                elements.hoverColorSwatch.style.background = '#7dd3fc';
+                elements.hoverColorValue.textContent = '—';
+                elements.hoverAltitudeValue.textContent = '—';
+                elements.hoverCoordinateValue.textContent = '—';
+                return;
+            }
+
+            const altitude = parseAltitude(feature.properties?.altitude);
+            const color = getSafeColor(feature.properties?.color);
+            const lng = Number(feature.properties?.lng);
+            const lat = Number(feature.properties?.lat);
+
+            elements.hoverColorSwatch.style.background = color;
+            elements.hoverColorValue.textContent = color;
+            elements.hoverAltitudeValue.textContent = formatAltitude(altitude);
+            elements.hoverCoordinateValue.textContent = Number.isFinite(lng) && Number.isFinite(lat)
+                ? `${lng.toFixed(6)}, ${lat.toFixed(6)}`
+                : '—';
+        }
+
+        /**
+         * 更新鼠标悬停时的柱体要素信息。
+         */
+        function handleFeatureHover(event) {
+            const feature = event.features?.[0];
+
+            if (!feature) {
+                updateHoverInspector(null);
+                return;
+            }
+
+            state.map.getCanvas().style.cursor = 'pointer';
+            updateHoverInspector(feature);
+        }
+
+        /**
+         * 清理鼠标离开要素后的交互状态。
+         */
+        function handleFeatureLeave() {
+            state.map.getCanvas().style.cursor = '';
+            updateHoverInspector(null);
+        }
+
+        /**
+         * 在地图空闲时更新统计。
+         */
+        function handleMapIdle() {
+            updateViewportStats();
+        }
+
+        /**
+         * 在地图加载完成后绑定图层和交互逻辑。
+         */
+        function handleMapLoad() {
+            setStatus('地图样式已加载，正在等待瓦片数据…', 'info');
+            state.map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
+            state.map.on('mousemove', EXTRUSION_LAYER_ID, handleFeatureHover);
+            state.map.on('mouseleave', EXTRUSION_LAYER_ID, handleFeatureLeave);
+            state.map.on('idle', handleMapIdle);
+        }
+
+        /**
+         * 处理地图底层资源或瓦片加载错误。
+         */
+        function handleMapError(event) {
+            if (!event || !event.error) {
+                return;
+            }
+
+            console.error(event.error);
+            setStatus('瓦片或样式资源加载失败，请检查 localhost:7778 的 MVT 服务是否可用。', 'error');
+        }
+
+        /**
+         * 初始化预览页地图和全部交互。
+         */
+        function initializePreview() {
+            state.map = new maplibregl.Map({
+                container: 'map',
+                style: createMapStyle(),
+                center: DEFAULT_CENTER,
+                zoom: DEFAULT_ZOOM,
+                maxZoom: 17.5,
+                pitch: 46,
+                bearing: -12,
+                antialias: true
+            });
+
+            elements.fitBoundsButton.addEventListener('click', fitMapToBounds);
+
+            state.map.on('load', handleMapLoad);
+            state.map.on('error', handleMapError);
+        }
+
+        initializePreview();
+    </script>
+</body>
+</html>

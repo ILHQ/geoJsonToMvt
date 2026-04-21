@@ -1,0 +1,22 @@
+{
+  "description": "全量数据瓦片层级配置",
+  "version": "1.0.0",
+  "zoomRanges": [
+    {
+      "min": 13,
+      "max": 15,
+      "name": "全量数据瓦片",
+      "gridSize": null,
+      "samplesPerCell": null,
+      "strategy": "保留所有点",
+      "generateTiles": true,
+      "note": "0-12 层级不生成瓦片"
+    }
+  ],
+  "strategies": {
+    "fullData": {
+      "description": "完整数据输出",
+      "note": "仅在 13-15 层级生成全量数据瓦片"
+    }
+  }
+}
