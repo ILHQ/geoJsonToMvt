@@ -27,19 +27,6 @@ function normalizePropertyValue(value) {
 }
 
 /**
- * 将米单位长度转换为指定纬度附近的经纬度偏移。
- */
-function metersToDegreeOffset(meters, latitude) {
-    const latOffset = meters / 111320;
-    const lngOffset = meters / (111320 * Math.cos((latitude * Math.PI) / 180));
-
-    return {
-        lngOffset,
-        latOffset
-    };
-}
-
-/**
  * 读取并解析输入文件，同时校验其是否满足项目约束。
  */
 export function readFeatureCollection(inputPath) {
@@ -120,45 +107,4 @@ export function countFeaturesWithThirdCoordinate(featureCollection) {
         const coordinates = feature?.geometry?.coordinates;
         return Array.isArray(coordinates) && coordinates.length > 2;
     }).length;
-}
-
-/**
- * 将 Point FeatureCollection 转换为固定尺寸方格 Polygon FeatureCollection。
- */
-export function createCubeFeatureCollection(featureCollection, cubeSizeMeters = 7) {
-    const halfSize = cubeSizeMeters / 2;
-    const halfHeight = cubeSizeMeters / 2;
-
-    return {
-        type: 'FeatureCollection',
-        features: featureCollection.features.map(feature => {
-            const [lng, lat] = feature.geometry.coordinates;
-            const altitude = isFiniteNumber(feature.properties?.altitude)
-                ? feature.properties.altitude
-                : 0;
-            const { lngOffset, latOffset } = metersToDegreeOffset(halfSize, lat);
-
-            return {
-                type: 'Feature',
-                properties: {
-                    ...feature.properties,
-                    altitude,
-                    baseHeight: altitude - halfHeight,
-                    topHeight: altitude + halfHeight,
-                    lng,
-                    lat
-                },
-                geometry: {
-                    type: 'Polygon',
-                    coordinates: [[
-                        [lng - lngOffset, lat - latOffset],
-                        [lng + lngOffset, lat - latOffset],
-                        [lng + lngOffset, lat + latOffset],
-                        [lng - lngOffset, lat + latOffset],
-                        [lng - lngOffset, lat - latOffset]
-                    ]]
-                }
-            };
-        })
-    };
 }

@@ -423,7 +423,7 @@
         <section class="hero">
             <div class="eyebrow">PBF Preview</div>
             <h1>固定方格，按高叠加</h1>
-            <p>这版预览默认加载高德底图，并从 `http://localhost:7778/mvt/{z}/{x}/{y}.pbf` 读取已经方格化的 Polygon 瓦片。预览直接使用 `SOURCE_ID` 做 `fill-extrusion`，相同经纬度的要素按 `altitude` 上下堆叠，颜色直接读取 `color`。</p>
+            <p>这版预览默认加载高德底图，并从 `http://localhost:7778/mvt/{z}/{x}/{y}.pbf` 读取 Point MVT。前端会基于点要素的 `coordinates` 计算固定 `7*7*7` 方格，再用 `fill-extrusion` 渲染；颜色直接读取 `color`。</p>
 
             <div class="status-row">
                 <div class="status-pill" id="statusPill" data-tone="info">
@@ -448,7 +448,7 @@
         <aside class="sidebar">
             <section class="panel">
                 <h2>数据规则</h2>
-                <p>每个数据单元在瓦片生成阶段就会被转换成固定 `7*7` 米的方格 Polygon。预览直接用 `SOURCE_ID` 做 `fill-extrusion`，`baseHeight = altitude - 3.5`，`topHeight = altitude + 3.5`，颜色直接来自 `color`。</p>
+                <p>PBF 中仍是 Point 要素，`properties` 只保留 `altitude` 和源业务字段。预览会在前端根据点坐标计算固定 `7*7` 米地面方格，并按 `baseHeight = altitude - 3.5`、`topHeight = altitude + 3.5` 做挤出。</p>
 
                 <div class="legend">
                     <div class="legend-row">
@@ -502,8 +502,12 @@
         const BASEMAP_LAYER_ID = 'gaode-base-layer';
         const SOURCE_ID = 'airspace';
         const SOURCE_LAYER = 'data';
+        const SOURCE_POINT_LAYER_ID = 'airspace-source-point-layer';
+        const EXTRUSION_SOURCE_ID = 'airspace-extrusion';
         const EXTRUSION_LAYER_ID = 'airspace-extrusion-layer';
         const TILE_URL = 'http://localhost:7778/mvt/{z}/{x}/{y}.pbf';
+        const CUBE_SIZE_METERS = 7;
+        const CUBE_HALF_HEIGHT = CUBE_SIZE_METERS / 2;
         const GAODE_TILE_URLS = [
             'https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}',
             'https://webrd02.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}',
@@ -515,7 +519,9 @@
 
         const state = {
             map: null,
-            bounds: null
+            bounds: null,
+            extrusionSignature: '',
+            visibleExtrusionCount: 0
         };
 
         const elements = {
@@ -529,6 +535,16 @@
             hoverAltitudeValue: document.getElementById('hoverAltitudeValue'),
             hoverCoordinateValue: document.getElementById('hoverCoordinateValue')
         };
+
+        /**
+         * 创建空的 FeatureCollection，作为前端临时挤出数据源默认值。
+         */
+        function createEmptyFeatureCollection() {
+            return {
+                type: 'FeatureCollection',
+                features: []
+            };
+        }
 
         /**
          * 创建直接读取 `color` 字段的方格颜色表达式。
@@ -577,6 +593,10 @@
                         tiles: [TILE_URL],
                         minzoom: 13,
                         maxzoom: 15
+                    },
+                    [EXTRUSION_SOURCE_ID]: {
+                        type: 'geojson',
+                        data: createEmptyFeatureCollection()
                     }
                 },
                 layers: [
@@ -594,10 +614,21 @@
                         }
                     },
                     {
-                        id: EXTRUSION_LAYER_ID,
-                        type: 'fill-extrusion',
+                        id: SOURCE_POINT_LAYER_ID,
+                        type: 'circle',
                         source: SOURCE_ID,
                         'source-layer': SOURCE_LAYER,
+                        paint: {
+                            'circle-radius': 3,
+                            'circle-color': '#000000',
+                            'circle-opacity': 0.001,
+                            'circle-stroke-opacity': 0
+                        }
+                    },
+                    {
+                        id: EXTRUSION_LAYER_ID,
+                        type: 'fill-extrusion',
+                        source: EXTRUSION_SOURCE_ID,
                         paint: {
                             'fill-extrusion-color': createExtrusionColorExpression(),
                             'fill-extrusion-height': createExtrusionHeightExpression(),
@@ -669,18 +700,7 @@
             let maxLat = -Infinity;
 
             features.forEach(feature => {
-                const lng = Number(feature?.properties?.lng);
-                const lat = Number(feature?.properties?.lat);
-
-                if (Number.isFinite(lng) && Number.isFinite(lat)) {
-                    minLng = Math.min(minLng, lng);
-                    maxLng = Math.max(maxLng, lng);
-                    minLat = Math.min(minLat, lat);
-                    maxLat = Math.max(maxLat, lat);
-                    return;
-                }
-
-                const coordinates = feature?.geometry?.coordinates?.[0]?.[0];
+                const coordinates = feature?.geometry?.coordinates;
                 if (!Array.isArray(coordinates) || coordinates.length < 2) {
                     return;
                 }
@@ -699,6 +719,68 @@
                 [minLng, minLat],
                 [maxLng, maxLat]
             ];
+        }
+
+        /**
+         * 将米单位长度转换为指定纬度附近的经纬度偏移。
+         */
+        function metersToDegreeOffset(meters, latitude) {
+            const latOffset = meters / 111320;
+            const lngOffset = meters / (111320 * Math.cos((latitude * Math.PI) / 180));
+
+            return {
+                lngOffset,
+                latOffset
+            };
+        }
+
+        /**
+         * 将 Point 要素扩展为固定 7 米立方体对应的矩形面要素。
+         */
+        function createExtrusionFeature(feature) {
+            const coordinates = feature.geometry?.coordinates;
+            if (!Array.isArray(coordinates) || coordinates.length < 2) {
+                return null;
+            }
+
+            const altitude = parseAltitude(feature.properties?.altitude);
+            if (altitude === null) {
+                return null;
+            }
+
+            const offset = metersToDegreeOffset(CUBE_SIZE_METERS / 2, coordinates[1]);
+            const lng = coordinates[0];
+            const lat = coordinates[1];
+            const color = getSafeColor(feature.properties?.color);
+            const baseHeight = altitude - CUBE_HALF_HEIGHT;
+            const topHeight = altitude + CUBE_HALF_HEIGHT;
+            const featureKey = [
+                lng.toFixed(6),
+                lat.toFixed(6),
+                altitude.toFixed(1),
+                color
+            ].join('|');
+
+            return {
+                type: 'Feature',
+                properties: {
+                    altitude,
+                    color,
+                    baseHeight,
+                    topHeight,
+                    featureKey
+                },
+                geometry: {
+                    type: 'Polygon',
+                    coordinates: [[
+                        [lng - offset.lngOffset, lat - offset.latOffset],
+                        [lng + offset.lngOffset, lat - offset.latOffset],
+                        [lng + offset.lngOffset, lat + offset.latOffset],
+                        [lng - offset.lngOffset, lat + offset.latOffset],
+                        [lng - offset.lngOffset, lat - offset.latOffset]
+                    ]]
+                }
+            };
         }
 
         /**
@@ -727,22 +809,34 @@
         }
 
         /**
-         * 去重并收集当前已加载的 PBF 方格要素。
+         * 去重并收集当前视窗内已渲染的 Point 要素。
          */
         function collectSourceFeatures() {
-            const renderedFeatures = state.map.querySourceFeatures(SOURCE_ID, {
-                sourceLayer: SOURCE_LAYER
-            });
+            const canvas = state.map.getCanvas();
+            const renderedFeatures = state.map.queryRenderedFeatures(
+                [
+                    [0, 0],
+                    [canvas.width, canvas.height]
+                ],
+                {
+                    layers: [SOURCE_POINT_LAYER_ID]
+                }
+            );
             const deduped = new Map();
 
             renderedFeatures.forEach(feature => {
+                const coordinates = feature.geometry?.coordinates;
                 const altitude = parseAltitude(feature.properties?.altitude);
-                const lng = Number(feature.properties?.lng);
-                const lat = Number(feature.properties?.lat);
+                if (!Array.isArray(coordinates) || coordinates.length < 2) {
+                    return;
+                }
+
+                const lng = coordinates[0];
+                const lat = coordinates[1];
                 const color = getSafeColor(feature.properties?.color);
                 const key = [
-                    Number.isFinite(lng) ? lng.toFixed(6) : 'na',
-                    Number.isFinite(lat) ? lat.toFixed(6) : 'na',
+                    lng.toFixed(6),
+                    lat.toFixed(6),
                     altitude ?? 'na',
                     color
                 ].join('|');
@@ -753,6 +847,37 @@
             });
 
             return Array.from(deduped.values());
+        }
+
+        /**
+         * 用当前视窗内的 Point 要素刷新前端临时挤出数据源。
+         */
+        function refreshExtrusionSource() {
+            if (!state.map) {
+                return;
+            }
+
+            const sourceFeatures = collectSourceFeatures();
+            state.bounds = calculateBoundsFromFeatures(sourceFeatures);
+            const extrusionFeatures = sourceFeatures
+                .map(feature => createExtrusionFeature(feature))
+                .filter(Boolean);
+            const signature = extrusionFeatures
+                .map(feature => feature.properties.featureKey)
+                .sort()
+                .join(';');
+
+            state.visibleExtrusionCount = extrusionFeatures.length;
+
+            if (signature === state.extrusionSignature) {
+                return;
+            }
+
+            state.extrusionSignature = signature;
+            state.map.getSource(EXTRUSION_SOURCE_ID).setData({
+                type: 'FeatureCollection',
+                features: extrusionFeatures
+            });
         }
 
         /**
@@ -774,13 +899,19 @@
                 }
             );
             const sourceFeatures = collectSourceFeatures();
-            state.bounds = calculateBoundsFromFeatures(sourceFeatures);
             const dedupedKeys = new Set();
 
             visibleFeatures.forEach(feature => {
                 const altitude = parseAltitude(feature.properties?.altitude);
-                const lng = Number(feature.properties?.lng);
-                const lat = Number(feature.properties?.lat);
+                const ring = feature.geometry?.coordinates?.[0];
+                const firstCorner = ring?.[0];
+                const oppositeCorner = ring?.[2];
+                const lng = Array.isArray(firstCorner) && Array.isArray(oppositeCorner)
+                    ? (firstCorner[0] + oppositeCorner[0]) / 2
+                    : NaN;
+                const lat = Array.isArray(firstCorner) && Array.isArray(oppositeCorner)
+                    ? (firstCorner[1] + oppositeCorner[1]) / 2
+                    : NaN;
                 const color = getSafeColor(feature.properties?.color);
 
                 dedupedKeys.add([
@@ -794,12 +925,12 @@
             elements.visibleFeatures.textContent = dedupedKeys.size.toLocaleString('zh-CN');
             elements.zoomValue.textContent = formatCompactNumber(state.map.getZoom(), 2);
 
-            if (sourceFeatures.length === 0) {
-                setStatus('当前视窗内还没有命中瓦片数据。', 'warn');
+            if (state.visibleExtrusionCount === 0) {
+                setStatus('当前视窗内还没有命中 Point 瓦片数据。', 'warn');
                 return;
             }
 
-            setStatus('高德底图与 SOURCE_ID 挤出方格已生效，颜色直接来自 color，高度按 altitude 计算。', 'info');
+            setStatus('高德底图与前端临时挤出方格已生效，颜色直接来自 color，高度按 altitude 计算。', 'info');
         }
 
         /**
@@ -816,8 +947,15 @@
 
             const altitude = parseAltitude(feature.properties?.altitude);
             const color = getSafeColor(feature.properties?.color);
-            const lng = Number(feature.properties?.lng);
-            const lat = Number(feature.properties?.lat);
+            const ring = feature.geometry?.coordinates?.[0];
+            const firstCorner = ring?.[0];
+            const oppositeCorner = ring?.[2];
+            const lng = Array.isArray(firstCorner) && Array.isArray(oppositeCorner)
+                ? (firstCorner[0] + oppositeCorner[0]) / 2
+                : NaN;
+            const lat = Array.isArray(firstCorner) && Array.isArray(oppositeCorner)
+                ? (firstCorner[1] + oppositeCorner[1]) / 2
+                : NaN;
 
             elements.hoverColorSwatch.style.background = color;
             elements.hoverColorValue.textContent = color;
@@ -851,9 +989,10 @@
         }
 
         /**
-         * 在地图空闲时更新统计。
+         * 在地图空闲时刷新方格数据并更新统计。
          */
         function handleMapIdle() {
+            refreshExtrusionSource();
             updateViewportStats();
         }
 

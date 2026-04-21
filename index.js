@@ -9,7 +9,6 @@ import {
     FULL_DATA_MIN_ZOOM
 } from './src/pointSampler.js';
 import {
-    createCubeFeatureCollection,
     countFeaturesWithThirdCoordinate,
     normalizeFeatureCollection,
     readFeatureCollection
@@ -167,8 +166,7 @@ function formatTileStats(tileCountByZoom) {
 function main() {
     console.log('📖 读取 FeatureCollection...');
     const rawFeatureCollection = readFeatureCollection(DEFAULT_INPUT_PATH);
-    const normalizedFeatureCollection = normalizeFeatureCollection(rawFeatureCollection);
-    const featureCollection = createCubeFeatureCollection(normalizedFeatureCollection);
+    const featureCollection = normalizeFeatureCollection(rawFeatureCollection);
     const thirdCoordinateCount = countFeaturesWithThirdCoordinate(rawFeatureCollection);
 
     console.log(`📊 要素数量: ${featureCollection.features.length}`);
@@ -176,7 +174,7 @@ function main() {
     if (thirdCoordinateCount > 0) {
         console.log('ℹ️  MVT 几何仅支持二维坐标，已同步第三维到 properties.altitude。');
     }
-    console.log('🧱 输出几何: 7x7 米方格 Polygon，baseHeight/topHeight 基于 altitude 计算。');
+    console.log('📍 输出几何: Point，properties 仅保留业务字段和 altitude。');
     console.log(`⚙️  生成 ${FULL_DATA_MIN_ZOOM}-${FULL_DATA_MAX_ZOOM} 层 MVT 瓦片...`);
 
     const tileIndex = geojsonvt(featureCollection, {

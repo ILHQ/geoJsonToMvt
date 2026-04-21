@@ -80,15 +80,16 @@ output/
 
 ## 预览
 
-项目根目录提供了 `preview.html`，默认加载高德底图，并从 `http://localhost:7778/mvt/{z}/{x}/{y}.pbf` 读取已经方格化的 MVT 瓦片：
+项目根目录提供了 `preview.html`，默认加载高德底图，并从 `http://localhost:7778/mvt/{z}/{x}/{y}.pbf` 读取 Point MVT：
 
 1. 确保本地 MVT 服务提供 `http://localhost:7778/mvt/{z}/{x}/{y}.pbf`
 2. 在项目根目录启动静态服务，例如 `python3 -m http.server 8080`
 3. 访问 `http://localhost:8080/preview.html`
 
-预览页会直接使用 `SOURCE_ID` 做 `fill-extrusion`：
+预览页会先读取 `SOURCE_ID` 中的 Point 要素，再在前端临时生成方格用于 `fill-extrusion`：
 
-- MVT 中的每个要素都是固定 `7*7` 米的方格 Polygon
+- PBF `properties` 只保留 `altitude` 和源业务字段
+- 前端基于 Point `coordinates` 生成固定 `7*7` 米的方格
 - `baseHeight = altitude - 3.5`
 - `topHeight = altitude + 3.5`
 - 挤出颜色直接读取 `color`
