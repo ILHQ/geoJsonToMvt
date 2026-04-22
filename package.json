@@ -2,13 +2,14 @@
   "name": "geojsontomvt",
   "version": "1.0.0",
   "type": "module",
-  "main": "index.js",
+  "main": "index.3d.js",
   "scripts": {
-    "generate-tiles": "node index.js"
+    "generate-tiles:2d": "node index.2d.js",
+    "generate-tiles:3d": "node index.3d.js"
   },
   "author": "",
   "license": "ISC",
-  "description": "Convert Point FeatureCollection data to MVT tiles",
+  "description": "Convert GeoJSON FeatureCollection data to 2D MVT or custom 3D protobuf tiles",
   "dependencies": {
     "geojson-vt": "^4.0.2",
     "vt-pbf": "^3.1.3"
