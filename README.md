@@ -54,6 +54,54 @@ npm run generate-tiles
 
 默认仍指向三维入口。
 
+## npm 包导出
+
+当前包除了 CLI，还对外公开三维自定义 PBF codec API。
+
+### 包根入口
+
+```js
+import {
+  decodeTile,
+  encodeTile,
+  GEOMETRY_TYPE_IDS,
+  GEOMETRY_TYPE_NAMES
+} from 'geojsontomvt';
+```
+
+### 子路径入口
+
+```js
+import { decodeTile } from 'geojsontomvt/3d-codec';
+```
+
+### 使用示例
+
+```js
+import fs from 'node:fs';
+import { decodeTile } from 'geojsontomvt';
+
+const buffer = fs.readFileSync('./output/3d/tiles/15/26780/14259.pbf');
+const tile = decodeTile(buffer);
+
+console.log(tile.z, tile.x, tile.y, tile.features.length);
+```
+
+### 当前公开 API
+
+- `decodeTile(bufferLike)`
+- `encodeTile(tile)`
+- `GEOMETRY_TYPE_IDS`
+- `GEOMETRY_TYPE_NAMES`
+
+以下内容仍视为内部实现，不承诺作为稳定公共 API：
+
+- `ProtoReader`
+- `ProtoWriter`
+- 三维 tile builder / clipper
+- 预览页逻辑
+- 二维 MVT 生成逻辑
+
 ## 输入格式约束
 
 输入文件固定为：
