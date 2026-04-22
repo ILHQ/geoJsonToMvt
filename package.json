@@ -1,6 +1,7 @@
 {
-  "name": "geojsontomvt",
-  "version": "1.0.0",
+  "name": "@deepinnet/geojson-to-mvt",
+  "version": "0.0.1",
+  "description": "Convert GeoJSON FeatureCollection data to 2D MVT or custom 3D protobuf tiles",
   "type": "module",
   "main": "./index.js",
   "exports": {
@@ -13,7 +14,9 @@
   },
   "author": "",
   "license": "ISC",
-  "description": "Convert GeoJSON FeatureCollection data to 2D MVT or custom 3D protobuf tiles",
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "geojson-vt": "^4.0.2",
     "vt-pbf": "^3.1.3"

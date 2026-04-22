@@ -54,6 +54,18 @@ npm run generate-tiles
 
 默认仍指向三维入口。
 
+### gzip 产物
+
+二维和三维生成脚本现在会直接把磁盘上的 `tile.pbf` 写成 **gzip 压缩后的内容**：
+
+- 文件名仍然是 `tile.pbf`
+- 文件内容已经是 gzip
+
+这样可以直接配合 nginx 返回：
+
+- `Content-Encoding: gzip`
+- `Content-Type: application/x-protobuf`
+
 ## npm 包导出
 
 当前包除了 CLI，还对外公开三维自定义 PBF codec API。
@@ -79,10 +91,11 @@ import { decodeTile } from 'geojsontomvt/3d-codec';
 
 ```js
 import fs from 'node:fs';
+import zlib from 'node:zlib';
 import { decodeTile } from 'geojsontomvt';
 
 const buffer = fs.readFileSync('./output/3d/tiles/15/26780/14259.pbf');
-const tile = decodeTile(buffer);
+const tile = decodeTile(zlib.gunzipSync(buffer));
 
 console.log(tile.z, tile.x, tile.y, tile.features.length);
 ```
@@ -154,6 +167,8 @@ output/
         └── 17/
 ```
 
+二维目录中的 `.pbf` 文件内容本身已经是 gzip 压缩后的二进制。
+
 ## 三维链路
 
 三维链路保留当前自定义 PBF 方案。
@@ -177,6 +192,8 @@ output/
         ├── 17/
         └── manifest.json
 ```
+
+三维目录中的 `.pbf` 文件内容本身已经是 gzip 压缩后的二进制，`manifest.json` 不参与压缩。
 
 ## 预览
 
@@ -212,6 +229,13 @@ http://localhost:8080/preview.html
 - 不再使用三维自定义协议或 worker 解码链路
 
 如果 `preview.html` 由 `http://localhost:8080` 提供，而 tile 服务在 `http://localhost:7778`，则 7778 服务需要返回允许 `http://localhost:8080` 的 CORS 响应头。
+
+预览页请求地址仍然是 `.pbf`。因为磁盘上的 `.pbf` 文件内容已经是 gzip，请由 tile 服务直接返回：
+
+- `Content-Encoding: gzip`
+- `Content-Type: application/x-protobuf`
+
+如果绕过 nginx 直接从磁盘读取这些 `.pbf` 文件，需要先 gunzip，再交给对应解码器。
 
 ## 失败条件
 

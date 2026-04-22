@@ -12,6 +12,7 @@ import {
     normalizeFeatureCollection,
     readFeatureCollection
 } from './src/3d/featureCollection.js';
+import { gzipTileDirectory } from './src/shared/gzipTiles.js';
 
 /**
  * 统计各几何类型数量，便于日志快速确认输入结构。
@@ -118,11 +119,18 @@ function main() {
 
     const tileStats = writeTiles(tiles);
     writeTileManifest(tiles);
+    const gzipStats = gzipTileDirectory(DEFAULT_TILES_DIR);
     console.log(`✅ 已生成 ${tileStats.total} 个瓦片`);
     console.log(`   分层统计: ${formatTileStats(tileStats.byZoom)}`);
+    console.log(`   gzip 文件数: ${gzipStats.fileCount}`);
+    console.log(`   清理历史 .pbf.gz: ${gzipStats.removedLegacyGzipCount}`);
+    console.log(`   gzip 压缩前: ${gzipStats.rawDisplay}`);
+    console.log(`   gzip 压缩后: ${gzipStats.gzipDisplay}`);
+    console.log(`   gzip 压缩率: ${gzipStats.ratio}%`);
     console.log('\n✨ 完成');
     console.log(`   - 瓦片目录: ${DEFAULT_TILES_DIR}`);
     console.log(`   - manifest: ${DEFAULT_TILES_DIR}/manifest.json`);
+    console.log('   - 注意: 磁盘上的 .pbf 文件内容已是 gzip，需要由 nginx 返回 Content-Encoding: gzip');
 }
 
 main();

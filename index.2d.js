@@ -7,6 +7,7 @@ import {
     normalizeFeatureCollection,
     readFeatureCollection
 } from './src/2d/featureCollection.js';
+import { gzipTileDirectory } from './src/shared/gzipTiles.js';
 import { generateTiles } from './src/2d/tileGenerator.js';
 
 /**
@@ -56,10 +57,17 @@ function main() {
     }
 
     const tileStats = generateTiles(featureCollection);
+    const gzipStats = gzipTileDirectory(DEFAULT_TILES_DIR);
     console.log(`✅ 已生成 ${tileStats.total} 个二维瓦片`);
     console.log(`   分层统计: ${formatTileStats(tileStats.byZoom)}`);
+    console.log(`   gzip 文件数: ${gzipStats.fileCount}`);
+    console.log(`   清理历史 .pbf.gz: ${gzipStats.removedLegacyGzipCount}`);
+    console.log(`   gzip 压缩前: ${gzipStats.rawDisplay}`);
+    console.log(`   gzip 压缩后: ${gzipStats.gzipDisplay}`);
+    console.log(`   gzip 压缩率: ${gzipStats.ratio}%`);
     console.log('\n✨ 完成');
     console.log(`   - 瓦片目录: ${DEFAULT_TILES_DIR}`);
+    console.log('   - 注意: 磁盘上的 .pbf 文件内容已是 gzip，需要由 nginx 返回 Content-Encoding: gzip');
 }
 
 main();
