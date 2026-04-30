@@ -209,16 +209,22 @@ http://localhost:7778/mvt/2d/{z}/{x}/{y}.pbf
 
 1. 先运行二维生成脚本
 2. 确保本地 tile 服务提供 `http://localhost:7778/mvt/2d/{z}/{x}/{y}.pbf`
-3. 在项目根目录启动静态服务，例如：
+3. 启动本地预览服务：
 
 ```bash
-python3 -m http.server 8080
+pnpm run preview
 ```
 
 4. 打开：
 
 ```text
 http://localhost:8080/preview.html
+```
+
+也可以直接访问：
+
+```text
+http://localhost:8080/
 ```
 
 ### 预览说明

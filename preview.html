@@ -1,710 +1,624 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>二维 MVT 预览</title>
-    <script src="https://unpkg.com/maplibre-gl@4.1.0/dist/maplibre-gl.js"></script>
-    <link href="https://unpkg.com/maplibre-gl@4.1.0/dist/maplibre-gl.css" rel="stylesheet">
-    <style>
-        :root {
-            --panel-bg: rgba(8, 16, 33, 0.86);
-            --panel-border: rgba(155, 193, 255, 0.18);
-            --panel-shadow: 0 22px 60px rgba(0, 0, 0, 0.35);
-            --text-main: #f5f9ff;
-            --text-muted: #8ea7c7;
-            --accent: #7dd3fc;
-            --accent-warm: #fb7185;
-            --surface: rgba(255, 255, 255, 0.05);
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>二维 MVT 预览</title>
+  <script src="https://unpkg.com/maplibre-gl@4.1.0/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@4.1.0/dist/maplibre-gl.css" rel="stylesheet">
+  <style>
+    :root {
+      --panel-bg: rgba(8, 16, 33, 0.86);
+      --panel-border: rgba(155, 193, 255, 0.18);
+      --panel-shadow: 0 22px 60px rgba(0, 0, 0, 0.35);
+      --text-main: #f5f9ff;
+      --text-muted: #8ea7c7;
+      --accent: #7dd3fc;
+      --accent-warm: #fb7185;
+      --surface: rgba(255, 255, 255, 0.05);
+    }
 
-        * {
-            box-sizing: border-box;
-        }
+    * {
+      box-sizing: border-box;
+    }
 
-        html,
-        body {
-            width: 100%;
-            height: 100%;
-            margin: 0;
-        }
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+    }
 
-        body {
-            overflow: hidden;
-            font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
-            background:
-                radial-gradient(circle at top left, rgba(34, 211, 238, 0.24), transparent 28%),
-                radial-gradient(circle at top right, rgba(251, 113, 133, 0.18), transparent 24%),
-                linear-gradient(135deg, #071120 0%, #0c1b34 52%, #12294a 100%);
-            color: var(--text-main);
-        }
+    body {
+      overflow: hidden;
+      font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      background: radial-gradient(circle at top left, rgba(34, 211, 238, 0.24), transparent 28%),
+      radial-gradient(circle at top right, rgba(251, 113, 133, 0.18), transparent 24%),
+      linear-gradient(135deg, #071120 0%, #0c1b34 52%, #12294a 100%);
+      color: var(--text-main);
+    }
 
-        #map {
-            width: 100%;
-            height: 100%;
-        }
+    #map {
+      width: 100%;
+      height: 100%;
+    }
 
-        .shell {
-            position: absolute;
-            inset: 0;
-            pointer-events: none;
-        }
+    .shell {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
 
-        .hero {
-            position: absolute;
-            top: 24px;
-            left: 24px;
-            width: min(430px, calc(100vw - 48px));
-            padding: 22px;
-            border-radius: 24px;
-            border: 1px solid var(--panel-border);
-            background: var(--panel-bg);
-            box-shadow: var(--panel-shadow);
-            backdrop-filter: blur(18px);
-            pointer-events: auto;
-        }
+    .hero {
+      position: absolute;
+      top: 24px;
+      left: 24px;
+      width: min(430px, calc(100vw - 48px));
+      padding: 22px;
+      border-radius: 24px;
+      border: 1px solid var(--panel-border);
+      background: var(--panel-bg);
+      box-shadow: var(--panel-shadow);
+      backdrop-filter: blur(18px);
+      pointer-events: auto;
+    }
 
-        .eyebrow {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px 10px;
-            border-radius: 999px;
-            background: rgba(125, 211, 252, 0.12);
-            color: #c7f1ff;
-            font-size: 12px;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-        }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(125, 211, 252, 0.12);
+      color: #c7f1ff;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
 
-        .hero h1 {
-            margin: 14px 0 10px;
-            font-size: clamp(30px, 4vw, 40px);
-            line-height: 1.02;
-            letter-spacing: -0.05em;
-        }
+    .hero h1 {
+      margin: 14px 0 10px;
+      font-size: clamp(30px, 4vw, 40px);
+      line-height: 1.02;
+      letter-spacing: -0.05em;
+    }
 
-        .hero p {
-            margin: 0;
-            color: var(--text-muted);
-            font-size: 14px;
-            line-height: 1.65;
-        }
+    .hero p {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 14px;
+      line-height: 1.65;
+    }
 
-        .hero strong {
-            color: var(--text-main);
-        }
+    .hero strong {
+      color: var(--text-main);
+    }
 
-        .hero-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 18px;
-            pointer-events: auto;
-        }
+    .hero-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 18px;
+      pointer-events: auto;
+    }
 
-        .hero-actions button {
-            appearance: none;
-            border: 1px solid rgba(125, 211, 252, 0.22);
-            border-radius: 999px;
-            background: rgba(125, 211, 252, 0.08);
-            color: var(--text-main);
-            padding: 10px 14px;
-            font: inherit;
-            cursor: pointer;
-            transition: transform 180ms ease, background 180ms ease, border-color 180ms ease;
-        }
+    .hero-actions button {
+      appearance: none;
+      border: 1px solid rgba(125, 211, 252, 0.22);
+      border-radius: 999px;
+      background: rgba(125, 211, 252, 0.08);
+      color: var(--text-main);
+      padding: 10px 14px;
+      font: inherit;
+      cursor: pointer;
+      transition: transform 180ms ease, background 180ms ease, border-color 180ms ease;
+    }
 
-        .hero-actions button:hover {
-            transform: translateY(-1px);
-            background: rgba(125, 211, 252, 0.14);
-            border-color: rgba(125, 211, 252, 0.38);
-        }
+    .hero-actions button:hover {
+      transform: translateY(-1px);
+      background: rgba(125, 211, 252, 0.14);
+      border-color: rgba(125, 211, 252, 0.38);
+    }
 
-        .hero-actions button.secondary {
-            background: rgba(255, 255, 255, 0.04);
-            border-color: rgba(255, 255, 255, 0.1);
-        }
+    .hero-actions button.secondary {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: rgba(255, 255, 255, 0.1);
+    }
 
-        .status-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            margin-top: 16px;
-            padding: 9px 12px;
-            border-radius: 999px;
-            background: rgba(255, 255, 255, 0.06);
-            font-size: 13px;
-        }
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 16px;
+      padding: 9px 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.06);
+      font-size: 13px;
+    }
 
-        .status-pill::before {
-            content: "";
-            width: 9px;
-            height: 9px;
-            border-radius: 50%;
-            background: var(--accent);
-            box-shadow: 0 0 18px rgba(125, 211, 252, 0.8);
-        }
+    .status-pill::before {
+      content: "";
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 18px rgba(125, 211, 252, 0.8);
+    }
 
-        .status-pill[data-tone="warn"]::before {
-            background: #fbbf24;
-            box-shadow: 0 0 18px rgba(251, 191, 36, 0.8);
-        }
+    .status-pill[data-tone="warn"]::before {
+      background: #fbbf24;
+      box-shadow: 0 0 18px rgba(251, 191, 36, 0.8);
+    }
 
-        .status-pill[data-tone="error"]::before {
-            background: var(--accent-warm);
-            box-shadow: 0 0 18px rgba(251, 113, 133, 0.8);
-        }
+    .status-pill[data-tone="error"]::before {
+      background: var(--accent-warm);
+      box-shadow: 0 0 18px rgba(251, 113, 133, 0.8);
+    }
 
-        .meta-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 12px;
-            margin-top: 18px;
-        }
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
 
-        .meta-card {
-            padding: 14px;
-            border-radius: 18px;
-            background: var(--surface);
-            border: 1px solid rgba(255, 255, 255, 0.06);
-        }
+    .meta-card {
+      padding: 14px;
+      border-radius: 18px;
+      background: var(--surface);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
 
-        .meta-card .label {
-            display: block;
-            font-size: 11px;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            color: var(--text-muted);
-        }
+    .meta-card .label {
+      display: block;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
 
-        .meta-card .value {
-            display: block;
-            margin-top: 8px;
-            font-size: 23px;
-            font-weight: 600;
-            letter-spacing: -0.04em;
-        }
+    .meta-card .value {
+      display: block;
+      margin-top: 8px;
+      font-size: 23px;
+      font-weight: 600;
+      letter-spacing: -0.04em;
+    }
 
-        .meta-card .hint {
-            display: block;
-            margin-top: 6px;
-            color: var(--text-muted);
-            font-size: 12px;
-            line-height: 1.5;
-        }
+    .meta-card .hint {
+      display: block;
+      margin-top: 6px;
+      color: var(--text-muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
 
-        .sidebar {
-            position: absolute;
-            top: 24px;
-            right: 24px;
-            width: min(340px, calc(100vw - 48px));
-            display: grid;
-            gap: 14px;
-            pointer-events: none;
-        }
+    .sidebar {
+      position: absolute;
+      top: 24px;
+      right: 24px;
+      width: min(340px, calc(100vw - 48px));
+      display: grid;
+      gap: 14px;
+      pointer-events: none;
+    }
 
-        .panel {
-            padding: 18px;
-            border-radius: 22px;
-            border: 1px solid var(--panel-border);
-            background: var(--panel-bg);
-            box-shadow: var(--panel-shadow);
-            backdrop-filter: blur(18px);
-            pointer-events: auto;
-        }
+    .panel {
+      padding: 18px;
+      border-radius: 22px;
+      border: 1px solid var(--panel-border);
+      background: var(--panel-bg);
+      box-shadow: var(--panel-shadow);
+      backdrop-filter: blur(18px);
+      pointer-events: auto;
+    }
 
-        .panel h2 {
-            margin: 0;
-            font-size: 16px;
-            letter-spacing: -0.02em;
-        }
+    .panel h2 {
+      margin: 0;
+      font-size: 16px;
+      letter-spacing: -0.02em;
+    }
 
-        .panel p {
-            margin: 10px 0 0;
-            color: var(--text-muted);
-            font-size: 13px;
-            line-height: 1.6;
-        }
+    .panel p {
+      margin: 10px 0 0;
+      color: var(--text-muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
 
-        .legend {
-            margin-top: 14px;
-            display: grid;
-            gap: 12px;
-        }
+    .legend {
+      margin-top: 14px;
+      display: grid;
+      gap: 12px;
+    }
 
-        .legend-row {
-            display: flex;
-            gap: 12px;
-            align-items: flex-start;
-        }
+    .legend-row {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
 
-        .legend-dot {
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            flex-shrink: 0;
-            margin-top: 1px;
-        }
+    .legend-dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
 
-        .legend-dot.point {
-            background: radial-gradient(circle, rgba(125, 211, 252, 1) 0%, rgba(125, 211, 252, 0.18) 72%);
-        }
+    .legend-dot.point {
+      background: radial-gradient(circle, rgba(125, 211, 252, 1) 0%, rgba(125, 211, 252, 0.18) 72%);
+    }
 
-        .legend-text strong {
-            display: block;
-            font-size: 13px;
-        }
+    .legend-text strong {
+      display: block;
+      font-size: 13px;
+    }
 
-        .legend-text span {
-            display: block;
-            margin-top: 4px;
-            color: var(--text-muted);
-            font-size: 12px;
-            line-height: 1.5;
-        }
+    .legend-text span {
+      display: block;
+      margin-top: 4px;
+      color: var(--text-muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
 
-        .detail-grid {
-            display: grid;
-            gap: 10px;
-            margin-top: 14px;
-        }
+    .detail-grid {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
 
-        .detail-row {
-            padding: 12px 14px;
-            border-radius: 16px;
-            background: var(--surface);
-            border: 1px solid rgba(255, 255, 255, 0.06);
-        }
+    .detail-row {
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: var(--surface);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
 
-        .detail-row .label {
-            display: block;
-            font-size: 11px;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            color: var(--text-muted);
-        }
+    .detail-row .label {
+      display: block;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
 
-        .detail-row .value {
-            display: block;
-            margin-top: 8px;
-            font-size: 14px;
-            line-height: 1.55;
-            word-break: break-word;
-        }
+    .detail-row .value {
+      display: block;
+      margin-top: 8px;
+      font-size: 14px;
+      line-height: 1.55;
+      word-break: break-word;
+    }
 
-        @media (max-width: 960px) {
-            .hero,
-            .sidebar {
-                position: static;
-                width: auto;
-            }
+    @media (max-width: 960px) {
+      .hero,
+      .sidebar {
+        position: static;
+        width: auto;
+      }
 
-            .shell {
-                padding: 16px;
-                overflow: auto;
-            }
+      .shell {
+        padding: 16px;
+        overflow: auto;
+      }
 
-            #map {
-                height: 100%;
-            }
-        }
-    </style>
+      #map {
+        height: 100%;
+      }
+    }
+  </style>
 </head>
 <body>
 <div id="map"></div>
 
 <div class="shell">
-    <section class="hero">
-        <span class="eyebrow">2D Vector Tile</span>
-        <h1>二维 MVT 标准预览</h1>
-        <p>这版预览只面向二维场景，直接用 MapLibre 的 <strong>`vector source`</strong> 加载 <strong>`http://localhost:7778/mvt/2d/{z}/{x}/{y}.pbf`</strong>。页面不再解析自定义三维 PBF，也不会生成 `7 × 7 × 7` 米立方体。</p>
-        <div class="hero-actions">
-            <button id="fitButton" type="button">定位到数据范围</button>
-            <button id="refreshButton" class="secondary" type="button">刷新样式</button>
+  <section class="hero">
+    <span class="eyebrow">2D Vector Tile</span>
+    <h1>二维 MVT 标准预览</h1>
+    <p>这版预览只面向二维场景，直接用 MapLibre 的 <strong>`vector source`</strong> 加载 <strong>`http://localhost:7778/mvt/2d/{z}/{x}/{y}.pbf`</strong>。页面不再解析自定义三维
+      PBF，也不会生成 `7 × 7 × 7` 米立方体。</p>
+    <div class="status-pill" id="statusPill" data-tone="info">等待初始化...</div>
+    <div class="meta-grid">
+      <div class="meta-card">
+        <span class="label">当前缩放</span>
+        <span class="value" id="zoomValue">-</span>
+        <span class="hint">当前地图缩放级别。</span>
+      </div>
+      <div class="meta-card">
+        <span class="label">已加载要素</span>
+        <span class="value" id="featureCountValue">-</span>
+        <span class="hint">当前已加载 tile 中的原始点要素数量。</span>
+      </div>
+      <div class="meta-card">
+        <span class="label">可见点数</span>
+        <span class="value" id="renderedPointCountValue">-</span>
+        <span class="hint">当前视野中真正渲染出来的点数量。</span>
+      </div>
+      <div class="meta-card">
+        <span class="label">Source Layer</span>
+        <span class="value">data</span>
+        <span class="hint">二维 MVT 固定使用 `data`。</span>
+      </div>
+    </div>
+  </section>
+
+  <aside class="sidebar">
+    <section class="panel">
+      <h2>当前渲染规则</h2>
+      <p>预览页只展示标准二维 MVT 中的点要素。颜色优先读取 `properties.color`，否则使用默认浅蓝色。页面不再处理高度，不再读取
+        `coordinates[2]`，也不再有自定义协议层。</p>
+      <div class="legend">
+        <div class="legend-row">
+          <div class="legend-dot point"></div>
+          <div class="legend-text">
+            <strong>Point / MultiPoint</strong>
+            <span>标准二维点渲染，随缩放调整圆点大小。</span>
+          </div>
         </div>
-        <div class="status-pill" id="statusPill" data-tone="info">等待初始化...</div>
-        <div class="meta-grid">
-            <div class="meta-card">
-                <span class="label">当前缩放</span>
-                <span class="value" id="zoomValue">-</span>
-                <span class="hint">当前地图缩放级别。</span>
-            </div>
-            <div class="meta-card">
-                <span class="label">已加载要素</span>
-                <span class="value" id="featureCountValue">-</span>
-                <span class="hint">当前已加载 tile 中的原始点要素数量。</span>
-            </div>
-            <div class="meta-card">
-                <span class="label">可见点数</span>
-                <span class="value" id="renderedPointCountValue">-</span>
-                <span class="hint">当前视野中真正渲染出来的点数量。</span>
-            </div>
-            <div class="meta-card">
-                <span class="label">Source Layer</span>
-                <span class="value">data</span>
-                <span class="hint">二维 MVT 固定使用 `data`。</span>
-            </div>
-        </div>
+      </div>
     </section>
 
-    <aside class="sidebar">
-        <section class="panel">
-            <h2>当前渲染规则</h2>
-            <p>预览页只展示标准二维 MVT 中的点要素。颜色优先读取 `properties.color`，否则使用默认浅蓝色。页面不再处理高度，不再读取 `coordinates[2]`，也不再有自定义协议层。</p>
-            <div class="legend">
-                <div class="legend-row">
-                    <div class="legend-dot point"></div>
-                    <div class="legend-text">
-                        <strong>Point / MultiPoint</strong>
-                        <span>标准二维点渲染，随缩放调整圆点大小。</span>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section class="panel">
-            <h2>悬浮信息</h2>
-            <p>移动鼠标到点要素上，可以查看几何类型与属性摘要。</p>
-            <div class="detail-grid">
-                <div class="detail-row">
-                    <span class="label">几何类型</span>
-                    <span class="value" id="hoverTypeValue">-</span>
-                </div>
-                <div class="detail-row">
-                    <span class="label">颜色</span>
-                    <span class="value" id="hoverColorValue">-</span>
-                </div>
-                <div class="detail-row">
-                    <span class="label">要素 ID</span>
-                    <span class="value" id="hoverIdValue">-</span>
-                </div>
-                <div class="detail-row">
-                    <span class="label">属性</span>
-                    <span class="value" id="hoverPropertiesValue">-</span>
-                </div>
-            </div>
-        </section>
-    </aside>
+    <section class="panel">
+      <h2>悬浮信息</h2>
+      <p>移动鼠标到点要素上，可以查看几何类型与属性摘要。</p>
+      <div class="detail-grid">
+        <div class="detail-row">
+          <span class="label">几何类型</span>
+          <span class="value" id="hoverTypeValue">-</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">颜色</span>
+          <span class="value" id="hoverColorValue">-</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">要素 ID</span>
+          <span class="value" id="hoverIdValue">-</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">属性</span>
+          <span class="value" id="hoverPropertiesValue">-</span>
+        </div>
+      </div>
+    </section>
+  </aside>
 </div>
 
 <script type="module">
-    const TILE_URL = 'http://localhost:7778/mvt/2d/{z}/{x}/{y}.pbf';
-    const INPUT_URL = './input/airspaceData.json';
-    const BASEMAP_SOURCE_ID = 'gaode-base';
-    const SOURCE_ID = 'airspace-2d';
-    const SOURCE_LAYER = 'data';
-    const POINT_LAYER_ID = 'point-layer';
+  const TILE_URL = 'http://127.0.0.1:3100/tiles/data/{z}/{x}/{y}.pbf?crs=gcj02';
+  // const TILE_URL = 'http://localhost:7778/mvt/2d/{z}/{x}/{y}.pbf';
+  const BASEMAP_SOURCE_ID = 'gaode-base';
+  const SOURCE_ID = 'airspace-2d';
+  const SOURCE_LAYER = 'data';
+  const POINT_LAYER_ID = 'point-layer';
 
-    const elements = {
-        statusPill: document.getElementById('statusPill'),
-        zoomValue: document.getElementById('zoomValue'),
-        featureCountValue: document.getElementById('featureCountValue'),
-        renderedPointCountValue: document.getElementById('renderedPointCountValue'),
-        hoverTypeValue: document.getElementById('hoverTypeValue'),
-        hoverColorValue: document.getElementById('hoverColorValue'),
-        hoverIdValue: document.getElementById('hoverIdValue'),
-        hoverPropertiesValue: document.getElementById('hoverPropertiesValue'),
-        fitButton: document.getElementById('fitButton'),
-        refreshButton: document.getElementById('refreshButton')
-    };
+  const elements = {
+    statusPill: document.getElementById('statusPill'),
+    zoomValue: document.getElementById('zoomValue'),
+    featureCountValue: document.getElementById('featureCountValue'),
+    renderedPointCountValue: document.getElementById('renderedPointCountValue'),
+    hoverTypeValue: document.getElementById('hoverTypeValue'),
+    hoverColorValue: document.getElementById('hoverColorValue'),
+    hoverIdValue: document.getElementById('hoverIdValue'),
+    hoverPropertiesValue: document.getElementById('hoverPropertiesValue'),
+    fitButton: document.getElementById('fitButton'),
+    refreshButton: document.getElementById('refreshButton')
+  };
 
-    const state = {
-        map: null,
-        dataBounds: null
-    };
+  const state = {
+    map: null,
+    dataBounds: null
+  };
 
-    /**
-     * 更新顶部状态条文案和语义色。
-     */
-    function setStatus(message, tone = 'info') {
-        elements.statusPill.textContent = message;
-        elements.statusPill.dataset.tone = tone;
+  /**
+   * 更新顶部状态条文案和语义色。
+   */
+  function setStatus(message, tone = 'info') {
+    elements.statusPill.textContent = message;
+    elements.statusPill.dataset.tone = tone;
+  }
+
+  /**
+   * 统一格式化数量和缩放展示。
+   */
+  function formatCompactNumber(value, digits = 0) {
+    if (!Number.isFinite(value)) {
+      return '-';
     }
 
-    /**
-     * 统一格式化数量和缩放展示。
-     */
-    function formatCompactNumber(value, digits = 0) {
-        if (!Number.isFinite(value)) {
-            return '-';
-        }
+    return Number(value).toLocaleString('zh-CN', {
+      maximumFractionDigits: digits
+    });
+  }
 
-        return Number(value).toLocaleString('zh-CN', {
-            maximumFractionDigits: digits
-        });
+  /**
+   * 归一化颜色字段，避免缺少业务颜色时页面过暗。
+   */
+  function normalizeColor(properties) {
+    const color = properties?.color;
+    return typeof color === 'string' && color.trim() ? color : '#7dd3fc';
+  }
+
+  /**
+   * 清空 hover 面板。
+   */
+  function resetHoverPanel() {
+    elements.hoverTypeValue.textContent = '-';
+    elements.hoverColorValue.textContent = '-';
+    elements.hoverIdValue.textContent = '-';
+    elements.hoverPropertiesValue.textContent = '-';
+  }
+
+  /**
+   * 将 hover 到的要素信息写入右侧面板。
+   */
+  function updateHoverPanel(feature) {
+    if (!feature) {
+      resetHoverPanel();
+      return;
     }
 
-    /**
-     * 归一化颜色字段，避免缺少业务颜色时页面过暗。
-     */
-    function normalizeColor(properties) {
-        const color = properties?.color;
-        return typeof color === 'string' && color.trim() ? color : '#7dd3fc';
+    const properties = feature.properties || {};
+    const propertySummary = JSON.stringify(properties, null, 2);
+
+    elements.hoverTypeValue.textContent = feature.geometry?.type || '-';
+    elements.hoverColorValue.textContent = normalizeColor(properties);
+    elements.hoverIdValue.textContent = feature.id ?? '-';
+    elements.hoverPropertiesValue.textContent = propertySummary.length > 240
+      ? `${propertySummary.slice(0, 240)}...`
+      : propertySummary;
+  }
+
+  /**
+   * 递归更新输入数据的二维包围盒。
+   */
+  function updateBoundsFromCoordinates(coordinates, bounds) {
+    if (!Array.isArray(coordinates)) {
+      return;
     }
 
-    /**
-     * 清空 hover 面板。
-     */
-    function resetHoverPanel() {
-        elements.hoverTypeValue.textContent = '-';
-        elements.hoverColorValue.textContent = '-';
-        elements.hoverIdValue.textContent = '-';
-        elements.hoverPropertiesValue.textContent = '-';
+    if (
+      coordinates.length >= 2 &&
+      typeof coordinates[0] === 'number' &&
+      typeof coordinates[1] === 'number'
+    ) {
+      bounds.minLng = Math.min(bounds.minLng, coordinates[0]);
+      bounds.maxLng = Math.max(bounds.maxLng, coordinates[0]);
+      bounds.minLat = Math.min(bounds.minLat, coordinates[1]);
+      bounds.maxLat = Math.max(bounds.maxLat, coordinates[1]);
+      return;
     }
 
-    /**
-     * 将 hover 到的要素信息写入右侧面板。
-     */
-    function updateHoverPanel(feature) {
-        if (!feature) {
-            resetHoverPanel();
-            return;
-        }
+    coordinates.forEach(child => {
+      updateBoundsFromCoordinates(child, bounds);
+    });
+  }
 
-        const properties = feature.properties || {};
-        const propertySummary = JSON.stringify(properties, null, 2);
-
-        elements.hoverTypeValue.textContent = feature.geometry?.type || '-';
-        elements.hoverColorValue.textContent = normalizeColor(properties);
-        elements.hoverIdValue.textContent = feature.id ?? '-';
-        elements.hoverPropertiesValue.textContent = propertySummary.length > 240
-            ? `${propertySummary.slice(0, 240)}...`
-            : propertySummary;
+  /**
+   * 更新顶部运行指标。
+   */
+  function updateRuntimeMetrics() {
+    if (!state.map) {
+      return;
     }
 
-    /**
-     * 递归更新输入数据的二维包围盒。
-     */
-    function updateBoundsFromCoordinates(coordinates, bounds) {
-        if (!Array.isArray(coordinates)) {
-            return;
-        }
+    const sourceFeatures = state.map.querySourceFeatures(SOURCE_ID, {
+      sourceLayer: SOURCE_LAYER
+    });
+    const renderedPoints = state.map.queryRenderedFeatures(undefined, {
+      layers: [POINT_LAYER_ID]
+    });
 
-        if (
-            coordinates.length >= 2 &&
-            typeof coordinates[0] === 'number' &&
-            typeof coordinates[1] === 'number'
-        ) {
-            bounds.minLng = Math.min(bounds.minLng, coordinates[0]);
-            bounds.maxLng = Math.max(bounds.maxLng, coordinates[0]);
-            bounds.minLat = Math.min(bounds.minLat, coordinates[1]);
-            bounds.maxLat = Math.max(bounds.maxLat, coordinates[1]);
-            return;
-        }
+    elements.zoomValue.textContent = formatCompactNumber(state.map.getZoom(), 2);
+    elements.featureCountValue.textContent = formatCompactNumber(sourceFeatures.length);
+    elements.renderedPointCountValue.textContent = formatCompactNumber(renderedPoints.length);
+  }
 
-        coordinates.forEach(child => {
-            updateBoundsFromCoordinates(child, bounds);
-        });
-    }
+  /**
+   * 绑定点图层 hover 行为。
+   */
+  function attachHoverInteractions() {
+    state.map.on('mousemove', event => {
+      const features = state.map.queryRenderedFeatures(event.point, {
+        layers: [POINT_LAYER_ID]
+      });
 
-    /**
-     * 从输入 GeoJSON 读取整体范围，供首次定位使用。
-     */
-    async function loadInputBounds() {
-        try {
-            const response = await fetch(INPUT_URL);
-            if (!response.ok) {
-                return;
-            }
+      updateHoverPanel(features[0]);
+    });
 
-            const featureCollection = await response.json();
-            const bounds = {
-                minLng: Infinity,
-                maxLng: -Infinity,
-                minLat: Infinity,
-                maxLat: -Infinity
-            };
+    state.map.on('mouseleave', POINT_LAYER_ID, resetHoverPanel);
+  }
 
-            (featureCollection.features || []).forEach(feature => {
-                updateBoundsFromCoordinates(feature.geometry?.coordinates, bounds);
-            });
-
-            if (
-                Number.isFinite(bounds.minLng) &&
-                Number.isFinite(bounds.maxLng) &&
-                Number.isFinite(bounds.minLat) &&
-                Number.isFinite(bounds.maxLat)
-            ) {
-                state.dataBounds = bounds;
-            }
-        } catch (error) {
-            console.error('读取输入边界失败', error);
-        }
-    }
-
-    /**
-     * 将地图定位到输入数据范围。
-     */
-    function fitToDataBounds() {
-        if (!state.dataBounds) {
-            setStatus('还没拿到输入数据边界，稍后再试。', 'warn');
-            return;
-        }
-
-        state.map.fitBounds(
-            [
-                [state.dataBounds.minLng, state.dataBounds.minLat],
-                [state.dataBounds.maxLng, state.dataBounds.maxLat]
+  /**
+   * 初始化二维 MVT 预览地图。
+   */
+  function initializeMap() {
+    state.map = new maplibregl.Map({
+      container: 'map',
+      center: [114.21, 22.70],
+      zoom: 15,
+      pitch: 0,
+      bearing: 0,
+      antialias: true,
+      style: {
+        version: 8,
+        sources: {
+          [BASEMAP_SOURCE_ID]: {
+            type: 'raster',
+            tiles: [
+              'https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}',
+              'https://webrd02.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}',
+              'https://webrd03.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}',
+              'https://webrd04.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}'
             ],
-            {
-                padding: {
-                    top: 90,
-                    right: 380,
-                    bottom: 90,
-                    left: 90
-                },
-                maxZoom: 17
+            tileSize: 256,
+            minzoom: 3,
+            maxzoom: 18
+          },
+          [SOURCE_ID]: {
+            type: 'vector',
+            tiles: [TILE_URL],
+            minzoom: 10,
+            maxzoom: 17
+          }
+        },
+        layers: [
+          {
+            id: 'basemap',
+            type: 'raster',
+            source: BASEMAP_SOURCE_ID
+          },
+          {
+            id: POINT_LAYER_ID,
+            type: 'circle',
+            source: SOURCE_ID,
+            'source-layer': SOURCE_LAYER,
+            paint: {
+              'circle-radius': [
+                'interpolate',
+                ['linear'],
+                ['zoom'],
+                15, 2.5,
+                17, 5.5
+              ],
+              'circle-color': [
+                'coalesce',
+                ['get', 'color'],
+                '#7dd3fc'
+              ],
+              'circle-stroke-width': 1.2,
+              'circle-stroke-color': '#ffffff',
+              'circle-opacity': 0.82
             }
-        );
-    }
-
-    /**
-     * 更新顶部运行指标。
-     */
-    function updateRuntimeMetrics() {
-        if (!state.map) {
-            return;
-        }
-
-        const sourceFeatures = state.map.querySourceFeatures(SOURCE_ID, {
-            sourceLayer: SOURCE_LAYER
-        });
-        const renderedPoints = state.map.queryRenderedFeatures(undefined, {
-            layers: [POINT_LAYER_ID]
-        });
-
-        elements.zoomValue.textContent = formatCompactNumber(state.map.getZoom(), 2);
-        elements.featureCountValue.textContent = formatCompactNumber(sourceFeatures.length);
-        elements.renderedPointCountValue.textContent = formatCompactNumber(renderedPoints.length);
-    }
-
-    /**
-     * 绑定点图层 hover 行为。
-     */
-    function attachHoverInteractions() {
-        state.map.on('mousemove', event => {
-            const features = state.map.queryRenderedFeatures(event.point, {
-                layers: [POINT_LAYER_ID]
-            });
-
-            updateHoverPanel(features[0]);
-        });
-
-        state.map.on('mouseleave', POINT_LAYER_ID, resetHoverPanel);
-    }
-
-    /**
-     * 初始化二维 MVT 预览地图。
-     */
-    function initializeMap() {
-        state.map = new maplibregl.Map({
-            container: 'map',
-            center: [114.21, 22.70],
-            zoom: 15,
-            pitch: 0,
-            bearing: 0,
-            antialias: true,
-            style: {
-                version: 8,
-                sources: {
-                    [BASEMAP_SOURCE_ID]: {
-                        type: 'raster',
-                        tiles: [
-                            'https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}',
-                            'https://webrd02.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}',
-                            'https://webrd03.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}',
-                            'https://webrd04.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}'
-                        ],
-                        tileSize: 256,
-                        minzoom: 3,
-                        maxzoom: 18
-                    },
-                    [SOURCE_ID]: {
-                        type: 'vector',
-                        tiles: [TILE_URL],
-                        minzoom: 15,
-                        maxzoom: 17
-                    }
-                },
-                layers: [
-                    {
-                        id: 'basemap',
-                        type: 'raster',
-                        source: BASEMAP_SOURCE_ID
-                    },
-                    {
-                        id: POINT_LAYER_ID,
-                        type: 'circle',
-                        source: SOURCE_ID,
-                        'source-layer': SOURCE_LAYER,
-                        paint: {
-                            'circle-radius': [
-                                'interpolate',
-                                ['linear'],
-                                ['zoom'],
-                                15, 2.5,
-                                17, 5.5
-                            ],
-                            'circle-color': [
-                                'coalesce',
-                                ['get', 'color'],
-                                '#7dd3fc'
-                            ],
-                            'circle-stroke-width': 1.2,
-                            'circle-stroke-color': '#ffffff',
-                            'circle-opacity': 0.82
-                        }
-                    }
-                ]
-            }
-        });
-
-        state.map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
-
-        state.map.on('load', () => {
-            attachHoverInteractions();
-            updateRuntimeMetrics();
-            setStatus('二维 MVT source 已挂载，正在等待 MapLibre 加载标准瓦片。', 'info');
-        });
-
-        state.map.on('render', updateRuntimeMetrics);
-        state.map.on('sourcedata', event => {
-            if (event.sourceId === SOURCE_ID && event.isSourceLoaded) {
-                setStatus('二维 MVT 已加载，当前页面只展示标准点渲染。', 'info');
-            }
-        });
-        state.map.on('error', event => {
-            if (event?.sourceId === SOURCE_ID) {
-                setStatus('二维 MVT 请求失败。请检查 `http://localhost:7778/mvt/2d/{z}/{x}/{y}.pbf` 和 CORS 配置。', 'error');
-            }
-        });
-    }
-
-    elements.fitButton.addEventListener('click', () => {
-        fitToDataBounds();
+          }
+        ]
+      }
     });
 
-    elements.refreshButton.addEventListener('click', () => {
-        if (!state.map) {
-            return;
-        }
+    state.map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
 
-        const style = state.map.getStyle();
-        state.map.setStyle(style);
-        resetHoverPanel();
-        setStatus('样式已刷新，MapLibre 会重新评估当前二维瓦片。', 'info');
+    state.map.on('load', () => {
+      attachHoverInteractions();
+      updateRuntimeMetrics();
+      setStatus('二维 MVT source 已挂载，正在等待 MapLibre 加载标准瓦片。', 'info');
     });
 
-    resetHoverPanel();
-    setStatus('正在初始化二维 MVT 预览...', 'info');
-    await loadInputBounds();
-    initializeMap();
+    state.map.on('render', updateRuntimeMetrics);
+    state.map.on('sourcedata', event => {
+      if (event.sourceId === SOURCE_ID && event.isSourceLoaded) {
+        setStatus('二维 MVT 已加载，当前页面只展示标准点渲染。', 'info');
+      }
+    });
+    state.map.on('error', event => {
+      if (event?.sourceId === SOURCE_ID) {
+        setStatus('二维 MVT 请求失败。请检查 `http://localhost:7778/mvt/2d/{z}/{x}/{y}.pbf` 和 CORS 配置。', 'error');
+      }
+    });
+  }
 
-    if (state.dataBounds) {
-        setTimeout(() => {
-            fitToDataBounds();
-        }, 360);
-    }
+  resetHoverPanel();
+  setStatus('正在初始化二维 MVT 预览...', 'info');
+  initializeMap();
 </script>
 </body>
 </html>

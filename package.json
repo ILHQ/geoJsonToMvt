@@ -10,7 +10,8 @@
   },
   "scripts": {
     "generate-tiles:2d": "node index.2d.js",
-    "generate-tiles:3d": "node index.3d.js"
+    "generate-tiles:3d": "node index.3d.js",
+    "preview": "node ./scripts/preview-server.js"
   },
   "author": "",
   "license": "ISC",
