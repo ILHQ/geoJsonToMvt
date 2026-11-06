@@ -1,6 +1,5 @@
 import fs from 'fs';
 import geojsonvt from 'geojson-vt';
-import vtpbf from 'vt-pbf';
 import {
     DEFAULT_SOURCE_LAYER,
     DEFAULT_TILES_DIR,
@@ -12,6 +11,7 @@ import {
     latToTileY,
     lngToTileX
 } from './tileMath.js';
+import { encode2dTile } from './mvtCodec.js';
 
 /**
  * 判断切片是否包含可编码要素。
@@ -74,9 +74,7 @@ export function generateTiles(featureCollection) {
     const tileCountByZoom = new Map();
 
     tiles.forEach(({ z, x, y, tile }) => {
-        const buffer = vtpbf.fromGeojsonVt({
-            [DEFAULT_SOURCE_LAYER]: tile
-        });
+        const buffer = encode2dTile(tile, DEFAULT_SOURCE_LAYER);
         const tileDir = `${DEFAULT_TILES_DIR}/${z}/${x}`;
 
         fs.mkdirSync(tileDir, { recursive: true });

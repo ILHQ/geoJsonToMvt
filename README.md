@@ -68,14 +68,16 @@ npm run generate-tiles
 
 ## npm 包导出
 
-当前包除了 CLI，还对外公开三维自定义 PBF codec API。
+当前包除了 CLI，还对外公开标准二维 MVT 和三维自定义 PBF codec API。
 
 ### 包根入口
 
 ```js
 import {
-  decodeTile,
-  encodeTile,
+  decode2dTile,
+  encode2dTile,
+  decode3dTile,
+  encode3dTile,
   GEOMETRY_TYPE_IDS,
   GEOMETRY_TYPE_NAMES
 } from 'geojsontomvt';
@@ -84,7 +86,8 @@ import {
 ### 子路径入口
 
 ```js
-import { decodeTile } from 'geojsontomvt/3d-codec';
+import { decode2dTile } from 'geojsontomvt/2d-codec';
+import { decode3dTile } from 'geojsontomvt/3d-codec';
 ```
 
 ### 使用示例
@@ -92,18 +95,20 @@ import { decodeTile } from 'geojsontomvt/3d-codec';
 ```js
 import fs from 'node:fs';
 import zlib from 'node:zlib';
-import { decodeTile } from 'geojsontomvt';
+import { decode3dTile } from 'geojsontomvt';
 
 const buffer = fs.readFileSync('./output/3d/tiles/15/26780/14259.pbf');
-const tile = decodeTile(zlib.gunzipSync(buffer));
+const tile = decode3dTile(zlib.gunzipSync(buffer));
 
 console.log(tile.z, tile.x, tile.y, tile.features.length);
 ```
 
 ### 当前公开 API
 
-- `decodeTile(bufferLike)`
-- `encodeTile(tile)`
+- `decode2dTile(bufferLike)`：解码标准二维 MVT，返回 `VectorTile` 对象。
+- `encode2dTile(tile, sourceLayer)`：将 `geojson-vt` tile 编码为标准二维 MVT。
+- `decode3dTile(bufferLike)`：解码三维自定义 PBF tile。
+- `encode3dTile(tile)`：编码三维自定义 PBF tile。
 - `GEOMETRY_TYPE_IDS`
 - `GEOMETRY_TYPE_NAMES`
 
@@ -113,7 +118,24 @@ console.log(tile.z, tile.x, tile.y, tile.features.length);
 - `ProtoWriter`
 - 三维 tile builder / clipper
 - 预览页逻辑
-- 二维 MVT 生成逻辑
+- 二维 MVT 切片生成逻辑
+
+二维 codec 示例：
+
+```js
+import fs from 'node:fs';
+import { decode2dTile } from 'geojsontomvt';
+
+const buffer = fs.readFileSync('./output/2d/tiles/15/26780/14259.pbf');
+const tile = decode2dTile(buffer);
+const layer = tile.layers.data;
+
+console.log(layer.length);
+```
+
+二维 `encode2dTile` 接收 `geojson-vt` 返回的单个 tile，不负责 GeoJSON
+切片；`decode2dTile` 接收未压缩的 MVT protobuf 数据。磁盘上的二维 `.pbf`
+文件如果由生成脚本写出，仍需先按实际 HTTP/文件压缩状态解压后再解码。
 
 ## 输入格式约束
 

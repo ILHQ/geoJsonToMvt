@@ -547,7 +547,7 @@ function decodeFeature(bytes) {
 /**
  * 将三维 tile 编码为自定义 protobuf 二进制。
  */
-export function encodeTile(tile) {
+export function encode3dTile(tile) {
     const writer = new ProtoWriter();
 
     writer.writeTag(1, WIRE_TYPE_VARINT);
@@ -569,9 +569,9 @@ export function encodeTile(tile) {
 }
 
 /**
- * 将自定义 protobuf 二进制解码为 tile 对象。
+ * 将自定义 protobuf 二进制解码为三维 tile 对象。
  */
-export function decodeTile(bufferLike) {
+export function decode3dTile(bufferLike) {
     const reader = new ProtoReader(bufferLike);
     const tile = {
         version: 1,

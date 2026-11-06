@@ -1,11 +1,12 @@
 {
   "name": "@deepinnet/geojson-to-mvt",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Convert GeoJSON FeatureCollection data to 2D MVT or custom 3D protobuf tiles",
   "type": "module",
   "main": "./index.js",
   "exports": {
     ".": "./index.js",
+    "./2d-codec": "./src/2d/index.js",
     "./3d-codec": "./src/3d/index.js"
   },
   "scripts": {
@@ -19,7 +20,9 @@
     "access": "public"
   },
   "dependencies": {
+    "@mapbox/vector-tile": "^3.0.0",
     "geojson-vt": "^4.0.2",
+    "pbf": "^5.1.2",
     "vt-pbf": "^3.1.3"
   },
   "devDependencies": {

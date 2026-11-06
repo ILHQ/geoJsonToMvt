@@ -1,6 +1,6 @@
 import fs from 'fs';
 import { buildTiles } from './src/3d/customTileBuilder.js';
-import { encodeTile } from './src/3d/customTileCodec.js';
+import { encode3dTile } from './src/3d/customTileCodec.js';
 import {
     DEFAULT_INPUT_PATH,
     DEFAULT_TILES_DIR,
@@ -54,7 +54,7 @@ function writeTiles(tiles) {
         const tilePath = `${tileDir}/${tile.y}.pbf`;
 
         fs.mkdirSync(tileDir, { recursive: true });
-        fs.writeFileSync(tilePath, encodeTile(tile));
+        fs.writeFileSync(tilePath, encode3dTile(tile));
 
         tileCountByZoom.set(tile.z, (tileCountByZoom.get(tile.z) || 0) + 1);
     });
